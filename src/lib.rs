@@ -2,7 +2,14 @@ use std::vec;
 
 use petgraph::{matrix_graph::{UnMatrix, NotZero}};
 #[derive(Debug, Clone, Copy)]
-pub struct Point(f64, f64);
+pub struct Point([f32; 2]);
+
+impl Point {
+    fn substract (
+        
+    )
+}
+
 #[derive(Clone, Copy)]
 pub struct Circle {
     location: Point,
@@ -34,7 +41,7 @@ impl Node {
 
 pub struct Edge {
     edge_type: EdgeType,
-    weight: f64
+    weight: f32
 }
 
 enum EdgeType {
@@ -58,8 +65,8 @@ pub fn line_of_sight(node_1: Node, node_2: Node, zone: Circle) -> bool {
     return false;
 }
 
-pub fn vector_norm() {
-
+pub fn vector_norm(p1: Point, p2: Point) {
+    let dot: f32 = p1.0.iter().zip(p2.0.iter()).map(|(a, b)| a * b).sum();
 }
 
 
@@ -77,9 +84,9 @@ mod tests {
 
     #[test]
     fn simple_graph() {
-        let start = Node::new(Point(0.0, 0.0));
-        let end = Node::new(Point(5.0, 5.0));
-        let circle = Circle::new(Point(2.0, 2.0), 2.0);
+        let start = Node::new(Point([0.0, 0.0]));
+        let end = Node::new(Point([5.0, 5.0]));
+        let circle = Circle::new(Point([2.0, 2.0]), 2.0);
         let circle_vec = vec![circle];
         let graph = build_graph(start, end, circle_vec);
         assert_eq!(graph.node_count(), 2);
