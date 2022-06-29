@@ -2,7 +2,7 @@ use std::vec;
 
 use petgraph::matrix_graph::{NotZero, UnMatrix};
 
-#[derive(Clone, )]
+#[derive(Clone)]
 pub struct Circle {
     location: Vec<f32>,
     radius: f32,
@@ -13,7 +13,7 @@ impl Circle {
         Self { location, radius }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Node {
     location: Vec<f32>,
 }
@@ -26,6 +26,12 @@ impl Node {
 pub struct Edge {
     edge_type: EdgeType,
     weight: f32,
+}
+
+impl Edge {
+    fn new(edge_type: EdgeType, weight: f32) -> Self {
+        Self { edge_type, weight }
+    }
 }
 
 enum EdgeType {
@@ -43,8 +49,20 @@ pub fn build_graph(
     zones: Vec<Circle>,
 ) -> UnMatrix<Node, Edge, Option<Edge>> {
     let mut graph = UnMatrix::<Node, Edge, Option<Edge>>::with_capacity(32);
-    graph.add_node(start);
-    graph.add_node(end);
+    let start_index = graph.add_node(start.clone());
+    let end_index = graph.add_node(end.clone());
+
+    //If there are are no zones we can skip to the end
+    if zones.len() > 0 {
+        for zone in zones {
+            let outcome = line_of_sight(&start, &end, zone);
+            println!("outcome of line of sight {}", outcome);
+        }
+    } else {
+        let start_end_edge = Edge::new(EdgeType::Surfing, distance(&start.location, &end.location));
+        graph.add_edge(start_index, end_index, start_end_edge);
+        println!("only start and end")
+    }
     return graph;
 }
 
@@ -62,17 +80,21 @@ pub fn build_graph(
 /// let result = line_of_sight(node_1, node_2, zone);
 /// assert_eq!(result, );
 /// ```
-pub fn line_of_sight(node_1: Node, node_2: Node, zone: Circle) -> bool {
+pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: Circle) -> bool {
     // Calculate u
-    let a = node_1.location;
-    let b = node_2.location;
+    let a = &node_1.location;
+    let b = &node_2.location;
     let c = zone.location;
     let ac_difference = subtrac_pts(&c, &a);
     let ab_difference = subtrac_pts(&b, &a);
-    let u = dot_product(&ac_difference, &ab_difference)/dot_product(&ab_difference, &ab_difference);
+    let u =
+        dot_product(&ac_difference, &ab_difference) / dot_product(&ab_difference, &ab_difference);
 
     // Clamp u and find e the point that intersects ab and passes through c
-    let clamp_product: Vec<f32> = ab_difference.iter().map(|value| value * u.clamp(0.0, 1.0)).collect();
+    let clamp_product: Vec<f32> = ab_difference
+        .iter()
+        .map(|value| value * u.clamp(0.0, 1.0))
+        .collect();
     let e = add_pts(&a, &clamp_product);
     let d = distance(&c, &e);
 
@@ -126,6 +148,16 @@ mod tests {
         let end = Node::new(vec![5.0, 5.0]);
         let circle = Circle::new(vec![2.0, 2.0], 2.0);
         let circle_vec = vec![circle];
+        let graph = build_graph(start, end, circle_vec);
+        assert_eq!(graph.node_count(), 2);
+        // print!("{:?}", graph)
+    }
+    
+    #[test]
+    fn simple_graph_no_circle() {
+        let start = Node::new(vec![0.0, 0.0]);
+        let end = Node::new(vec![5.0, 5.0]);
+        let circle_vec = vec![];
         let graph = build_graph(start, end, circle_vec);
         assert_eq!(graph.node_count(), 2);
         // print!("{:?}", graph)
