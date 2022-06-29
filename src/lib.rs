@@ -152,7 +152,7 @@ mod tests {
         assert_eq!(graph.node_count(), 2);
         // print!("{:?}", graph)
     }
-    
+
     #[test]
     fn simple_graph_no_circle() {
         let start = Node::new(vec![0.0, 0.0]);
