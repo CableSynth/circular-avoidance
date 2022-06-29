@@ -1,26 +1,24 @@
 use std::vec;
 
 use petgraph::matrix_graph::{NotZero, UnMatrix};
-#[derive(Debug, Clone, Copy)]
-pub struct Point([f32; 2]);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, )]
 pub struct Circle {
-    location: Point,
+    location: Vec<f32>,
     radius: f32,
 }
 
 impl Circle {
-    fn new(location: Point, radius: f32) -> Self {
+    fn new(location: Vec<f32>, radius: f32) -> Self {
         Self { location, radius }
     }
 }
 #[derive(Debug)]
 pub struct Node {
-    location: Point,
+    location: Vec<f32>,
 }
 impl Node {
-    fn new(location: Point) -> Self {
+    fn new(location: Vec<f32>) -> Self {
         Self { location }
     }
 }
@@ -50,20 +48,47 @@ pub fn build_graph(
     return graph;
 }
 
+///
+/// # Arguments
+/// * `node_1`
+/// * `node_2`
+/// * `zone`
+/// This functions takes in two points and a zone
+/// # Examples
+///
+/// ```
+/// use circular_avoidance::line_of_sight;
+///
+/// let result = line_of_sight(node_1, node_2, zone);
+/// assert_eq!(result, );
+/// ```
 pub fn line_of_sight(node_1: Node, node_2: Node, zone: Circle) -> bool {
-    /// Calculate u
-    let c = zone.location.0;
-    let a = node_1.location.0;
-    let b = node_2.location.0;
+    // Calculate u
+    let a = node_1.location;
+    let b = node_2.location;
+    let c = zone.location;
+    let ac_difference = subtrac_pts(&c, &a);
+    let ab_difference = subtrac_pts(&b, &a);
+    let u = dot_product(&ac_difference, &ab_difference)/dot_product(&ab_difference, &ab_difference);
+
+    // Clamp u and find e the point that intersects ab and passes through c
+    let clamp_product: Vec<f32> = ab_difference.iter().map(|value| value * u.clamp(0.0, 1.0)).collect();
+    let e = add_pts(&a, &clamp_product);
+    let d = distance(&c, &e);
+
+    if d < zone.radius {
+        return true;
+    }
+
     return false;
 }
 
-pub fn dot_product(p1: Vec<f32>, p2: Vec<f32>) -> f32 {
+pub fn dot_product(p1: &Vec<f32>, p2: &Vec<f32>) -> f32 {
     let dot: f32 = p1.iter().zip(p2.iter()).map(|(a, b)| a * b).sum();
     return dot;
 }
 
-pub fn distance(p1: Vec<f32>, p2: Vec<f32>) -> f32 {
+pub fn distance(p1: &Vec<f32>, p2: &Vec<f32>) -> f32 {
     let square_sum: f32 = p1
         .iter()
         .zip(p2.iter())
@@ -73,12 +98,12 @@ pub fn distance(p1: Vec<f32>, p2: Vec<f32>) -> f32 {
     return distance;
 }
 
-pub fn add_pts(p1: Vec<f32>, p2: Vec<f32>) -> Vec<f32> {
+pub fn add_pts(p1: &Vec<f32>, p2: &Vec<f32>) -> Vec<f32> {
     let point_sum: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 + x2).collect();
     return point_sum;
 }
 
-pub fn subtrac_pts(p1: Vec<f32>, p2: Vec<f32>) -> Vec<f32> {
+pub fn subtrac_pts(p1: &Vec<f32>, p2: &Vec<f32>) -> Vec<f32> {
     let difference: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
     return difference;
 }
@@ -97,9 +122,9 @@ mod tests {
 
     #[test]
     fn simple_graph() {
-        let start = Node::new(Point([0.0, 0.0]));
-        let end = Node::new(Point([5.0, 5.0]));
-        let circle = Circle::new(Point([2.0, 2.0]), 2.0);
+        let start = Node::new(vec![0.0, 0.0]);
+        let end = Node::new(vec![5.0, 5.0]);
+        let circle = Circle::new(vec![2.0, 2.0], 2.0);
         let circle_vec = vec![circle];
         let graph = build_graph(start, end, circle_vec);
         assert_eq!(graph.node_count(), 2);
