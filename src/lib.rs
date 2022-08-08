@@ -1,41 +1,83 @@
-use itertools::Itertools;
+use std::collections::HashMap;
 
-use petgraph::matrix_graph::{NotZero, UnMatrix};
+use itertools::Itertools;
+use std::mem;
 
 #[derive(Clone, Debug)]
+pub struct Graph {
+    start: Node,
+    end: Node,
+    circles: Vec<Circle>,
+    // Edge: EndNode, weight, theta, direction
+    edges: HashMap<Node, Vec<EdgeType>>
+}
+
+impl Graph {
+    fn new(start: Node, end: Node, circles: Vec<Circle>) -> Self{
+        Self{
+            start,
+            end,
+            circles,
+            edges: HashMap::new()
+        }
+    }
+    fn neighbors(self, node: Node) {
+        if node == self.start {
+            println!("We are start")
+        }
+
+    }
+}
+
 pub struct Circle {
-    location: Vec<f32>,
+    location: Vec<Point>,
     radius: f32,
     nodes: Vec<Node>,
 }
 
 impl Circle {
-    fn new(location: Vec<f32>, radius: f32) -> Self {
+    fn new(location: Vec<f64>, radius: f32) -> Self {
         Self {
-            location,
+            location: location.iter().map(|&value| Point::new(value.into())).collect(),
             radius,
             nodes: Vec::<Node>::new(),
         }
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Node {
-    location: Vec<f32>,
+    location: Vec<Point>,
 }
 impl Node {
-    fn new(location: Vec<f32>) -> Self {
-        Self { location }
+    fn new(location: Vec<f64>) -> Self {
+        Self {
+            location: location.iter().map(|&value| Point::new(value.into())).collect()
+        }
+    }
+}
+
+#[derive(Clone,Hash, Debug, PartialEq, Eq)]
+pub struct Point((u64, i16, i8));
+
+impl Point{
+    fn new(val: f64) -> Point {
+        Point(integer_decode(val))
+    }
+    fn float_encode(self) -> f64 {
+        (self.0.0 as f64).powi(self.0.1.into()) * self.0.2 as f64
     }
 }
 
 pub struct Edge {
     edge_type: EdgeType,
     weight: f32,
+    theta: f32,
+    direction: Vec<f32>,
 }
 
 impl Edge {
-    fn new(edge_type: EdgeType, weight: f32) -> Self {
-        Self { edge_type, weight }
+    fn new(edge_type: EdgeType, weight: f32, theta: f32, direction: Vec<f32>) -> Self {
+        Self { edge_type, weight, theta, direction }
     }
 }
 
@@ -52,31 +94,23 @@ pub fn build_graph(
     start: Node,
     end: Node,
     zones: Vec<Circle>,
-) -> UnMatrix<Node, Edge, Option<Edge>> {
-    let mut graph = UnMatrix::<Node, Edge, Option<Edge>>::with_capacity(32);
-    let start_index = graph.add_node(start.clone());
-    let end_index = graph.add_node(end.clone());
+) -> Graph {
+    graph = Graph::new(start, end, zones)
+}
 
-    //If there are are no zones we can skip to the end
-    if !zones.is_empty() {
-        let blocked = line_of_sight_zones(&start, &end, zones.clone());
-        if !blocked {
-            let start_end_edge =
-                Edge::new(EdgeType::Surfing, distance(&start.location, &end.location));
-            graph.add_edge(start_index, end_index, start_end_edge)
-        }
-        let combo_zones = zones.iter().combinations(2);
-        println!("combo_zones: {:?}", combo_zones);
-        for zone_pair in combo_zones {
-            let outcome = line_of_sight(&start, &end, zone_pair[0]);
-            println!("outcome of line of sight {}", outcome);
-        }
+//Pulled from old Rust std
+fn integer_decode(val: f64) -> (u64, i16, i8) {
+    let bits: u64 = unsafe { mem::transmute(val) };
+    let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
+    let mut exponent: i16 = ((bits >> 52) & 0x7ff) as i16;
+    let mantissa = if exponent == 0 {
+        (bits & 0xfffffffffffff) << 1
     } else {
-        let start_end_edge = Edge::new(EdgeType::Surfing, distance(&start.location, &end.location));
-        graph.add_edge(start_index, end_index, start_end_edge);
-        println!("only start and end")
-    }
-    graph
+        (bits & 0xfffffffffffff) | 0x10000000000000
+    };
+
+    exponent -= 1023 + 52;
+    (mantissa, exponent, sign)
 }
 
 ///
@@ -105,7 +139,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> 
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
         // Clamp u and find e the point that intersects ab and passes through c
-        let clamp_product: Vec<f32> = ab_difference
+        let clamp_product: Vec<f64> = ab_difference
             .iter()
             .map(|value| value * u.clamp(0.0, 1.0))
             .collect();
@@ -122,7 +156,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> 
 
 pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
     // Calculate u
-    let a = &node_1.location;
+    let a = vec![&node_1.location.into_iter().map(|value| value.float_encode()).collect()];
     let b = &node_2.location;
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
@@ -131,7 +165,7 @@ pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
     let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
     // Clamp u and find e the point that intersects ab and passes through c
-    let clamp_product: Vec<f32> = ab_difference
+    let clamp_product: Vec<f64> = ab_difference
         .iter()
         .map(|value| value * u.clamp(0.0, 1.0))
         .collect();
@@ -144,13 +178,13 @@ pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
 
     false
 }
-pub fn dot_product(p1: &[f32], p2: &[f32]) -> f32 {
-    let dot: f32 = p1.iter().zip(p2.iter()).map(|(a, b)| a * b).sum();
+pub fn dot_product(p1: &[f64], p2: &[f64]) -> f64 {
+    let dot: f64 = p1.iter().zip(p2.iter()).map(|(a, b)| a * b).sum();
     dot
 }
 
-pub fn distance(p1: &[f32], p2: &[f32]) -> f32 {
-    let square_sum: f32 = p1
+pub fn distance(p1: &[f64], p2: &[f64]) -> f64 {
+    let square_sum: f64 = p1
         .iter()
         .zip(p2.iter())
         .map(|(x1, x2)| (x2 - x1).powi(2))
@@ -158,13 +192,13 @@ pub fn distance(p1: &[f32], p2: &[f32]) -> f32 {
     square_sum.sqrt()
 }
 
-pub fn add_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
-    let point_sum: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 + x2).collect();
+pub fn add_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
+    let point_sum: Vec<f64> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 + x2).collect();
     point_sum
 }
 
-pub fn subtrac_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
-    let difference: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
+pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
+    let difference: Vec<f64> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
     difference
 }
 
@@ -186,7 +220,7 @@ mod tests {
         let circle = Circle::new(vec![2.0, 2.0], 2.0);
         let circle_vec = vec![circle];
         let graph = build_graph(start, end, circle_vec);
-        assert_eq!(graph.node_count(), 2);
+        graph.neighbors(start)
         // print!("{:?}", graph)
     }
 
@@ -194,9 +228,6 @@ mod tests {
     fn simple_graph_no_circle() {
         let start = Node::new(vec![0.0, 0.0]);
         let end = Node::new(vec![5.0, 5.0]);
-        let circle_vec = vec![];
-        let graph = build_graph(start, end, circle_vec);
-        assert_eq!(graph.node_count(), 2);
         // print!("{:?}", graph)
     }
 }
