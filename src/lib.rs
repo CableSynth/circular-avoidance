@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, borrow::BorrowMut};
 
 use itertools::Itertools;
 use std::mem;
@@ -18,18 +18,24 @@ impl Graph {
             start,
             end,
             circles,
-            edges: HashMap::new()
+            edges: HashMap::from([(start, Vec::<Edge>::new())])
         }
     }
-    fn neighbors(self, node: Node) {
+    fn neighbors(self, node: Node) -> Vec<Edge>{
         //There are three cases
         //First Case: node is start. We need to check to see if we had to escape
         //
         if node == self.start {
             println!("We are start");
             
-        }
+            if self.edges.get(&node).unwrap().len() > 0 {
+                println!("we have stuff in start")
+            }else {
+                println!("start is empty")
+            }
 
+        }
+        return self.edges.get(&node).unwrap().to_vec();
     }
 }
 #[derive(Debug)]
@@ -72,7 +78,7 @@ impl Point{
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Edge {
     edge_type: EdgeType,
     weight: f32,
@@ -85,7 +91,7 @@ impl Edge {
         Self { edge_type, weight, theta, direction }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum EdgeType {
     Surfing,
     Hugging,
@@ -226,13 +232,14 @@ mod tests {
     }
 
     #[test]
-    fn simple_graph() {
+    fn graph_build() {
         let start = Node::new([0.0, 0.0]);
         let end = Node::new([5.0, 5.0]);
         let circle = Circle::new([2.0, 2.0], 2.0);
         let circle_vec = vec![circle];
         let graph = build_graph(start, end, circle_vec);
-        graph.neighbors(start)
+        let nodes = graph.neighbors(start);
+        assert_eq!(nodes.len(), 0);
         // print!("{:?}", graph)
     }
 
