@@ -3,13 +3,13 @@ use std::collections::HashMap;
 use itertools::Itertools;
 use std::mem;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct Graph {
     start: Node,
     end: Node,
     circles: Vec<Circle>,
     // Edge: EndNode, weight, theta, direction
-    edges: HashMap<Node, Vec<EdgeType>>
+    edges: HashMap<Node, Vec<Edge>>
 }
 
 impl Graph {
@@ -22,41 +22,45 @@ impl Graph {
         }
     }
     fn neighbors(self, node: Node) {
+        //There are three cases
+        //First Case: node is start. We need to check to see if we had to escape
+        //
         if node == self.start {
-            println!("We are start")
+            println!("We are start");
+            
         }
 
     }
 }
-
+#[derive(Debug)]
 pub struct Circle {
-    location: Vec<Point>,
-    radius: f32,
+    location: [Point; 2],
+    radius: f64,
     nodes: Vec<Node>,
 }
 
 impl Circle {
-    fn new(location: Vec<f64>, radius: f32) -> Self {
+    fn new(location: [f64; 2], radius: f64) -> Self {
         Self {
-            location: location.iter().map(|&value| Point::new(value.into())).collect(),
+            location: [Point::new(location[0]), Point::new(location[1])],
             radius,
             nodes: Vec::<Node>::new(),
         }
     }
 }
-#[derive(Debug, Clone, Hash, Eq, PartialEq)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Copy)]
 pub struct Node {
-    location: Vec<Point>,
+    location: [Point; 2],
 }
 impl Node {
-    fn new(location: Vec<f64>) -> Self {
+    fn new(location: [f64; 2]) -> Self {
         Self {
-            location: location.iter().map(|&value| Point::new(value.into())).collect()
+            location: [Point::new(location[0]), Point::new(location[1])] 
         }
     }
 }
 
-#[derive(Clone,Hash, Debug, PartialEq, Eq)]
+#[derive(Clone,Hash, Debug, PartialEq, Eq, Copy)]
 pub struct Point((u64, i16, i8));
 
 impl Point{
@@ -64,10 +68,11 @@ impl Point{
         Point(integer_decode(val))
     }
     fn float_encode(self) -> f64 {
-        (self.0.0 as f64).powi(self.0.1.into()) * self.0.2 as f64
+        (self.0.0 as f64) * (self.0.1 as f64).exp2() * self.0.2 as f64
     }
 }
 
+#[derive(Debug)]
 pub struct Edge {
     edge_type: EdgeType,
     weight: f32,
@@ -80,7 +85,7 @@ impl Edge {
         Self { edge_type, weight, theta, direction }
     }
 }
-
+#[derive(Debug)]
 enum EdgeType {
     Surfing,
     Hugging,
@@ -95,7 +100,7 @@ pub fn build_graph(
     end: Node,
     zones: Vec<Circle>,
 ) -> Graph {
-    graph = Graph::new(start, end, zones)
+    Graph::new(start, end, zones)
 }
 
 //Pulled from old Rust std
@@ -129,12 +134,12 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
 /// ```
 pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> bool {
     // Calculate u
-    let a = &node_1.location;
-    let b = &node_2.location;
+    let a = &node_1.location.iter().map(|value| value.float_encode()).collect_vec();
+    let b = &node_2.location.iter().map(|value| value.float_encode()).collect_vec();
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
     for zone in zones {
-        let c = &zone.location;
+        let c = &zone.location.iter().map(|value| value.float_encode()).collect_vec();
         let ac_difference = subtrac_pts(c, a);
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
@@ -156,11 +161,11 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> 
 
 pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
     // Calculate u
-    let a = vec![&node_1.location.into_iter().map(|value| value.float_encode()).collect()];
-    let b = &node_2.location;
+    let a = &node_1.location.iter().map(|value| value.float_encode()).collect_vec();
+    let b = &node_2.location.iter().map(|value| value.float_encode()).collect_vec();
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
-    let c = &zone.location;
+    let c = &zone.location.iter().map(|value| value.float_encode()).collect_vec();
     let ac_difference = subtrac_pts(c, a);
     let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
@@ -214,10 +219,17 @@ mod tests {
     }
 
     #[test]
+    fn test_point() {
+        let float_pt = 2.333;
+        let pt = Point::new(float_pt);
+        assert_eq!(pt.float_encode(), float_pt)
+    }
+
+    #[test]
     fn simple_graph() {
-        let start = Node::new(vec![0.0, 0.0]);
-        let end = Node::new(vec![5.0, 5.0]);
-        let circle = Circle::new(vec![2.0, 2.0], 2.0);
+        let start = Node::new([0.0, 0.0]);
+        let end = Node::new([5.0, 5.0]);
+        let circle = Circle::new([2.0, 2.0], 2.0);
         let circle_vec = vec![circle];
         let graph = build_graph(start, end, circle_vec);
         graph.neighbors(start)
@@ -226,8 +238,8 @@ mod tests {
 
     #[test]
     fn simple_graph_no_circle() {
-        let start = Node::new(vec![0.0, 0.0]);
-        let end = Node::new(vec![5.0, 5.0]);
+        let start = Node::new([0.0, 0.0]);
+        let end = Node::new([5.0, 5.0]);
         // print!("{:?}", graph)
     }
 }
