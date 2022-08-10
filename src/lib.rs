@@ -45,28 +45,6 @@ impl Graph {
         }
         return self.edges.get(&node).unwrap().to_vec();
     }
-
-    fn external_bitangents(start_circle: Circle, end_circle: Circle) {
-        let start_loc = start_circle.location.float_encode();
-        let end_loc = end_circle.location.float_encode();
-        let start_radius = start_circle.radius;
-        let end_radius = end_circle.radius;
-        let d = distance(&start_loc, &end_loc);
-        let theta_num = ((start_radius + end_radius) / d).acos();
-    }
-
-    fn internal_bitangents(start_circle: Circle, end_circle: Circle) {
-        let start_loc = start_circle.location.float_encode();
-        let end_loc = end_circle.location.float_encode();
-        let start_radius = start_circle.radius;
-        let end_radius = end_circle.radius;
-        let d = distance(&start_loc, &end_loc);
-        let theta_num = ((start_radius + end_radius) / d).acos();
-    }
-
-    fn tangent_points() {}
-
-    fn neg_tangent_points() {}
 }
 #[derive(Debug)]
 pub struct Circle {
@@ -171,7 +149,7 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
 /// ```
 /// use circular_avoidance::line_of_sight;
 ///
-/// let result = line_of_sight(node_1, node_2, zone);
+/// let result = line_of_sight(node_1, node_2, zones);
 /// assert_eq!(result, );
 /// ```
 pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> bool {
@@ -249,6 +227,28 @@ pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
     difference
 }
 
+fn external_bitangents(start_circle: Circle, end_circle: Circle) {
+    let start_loc = start_circle.location.float_encode();
+    let end_loc = end_circle.location.float_encode();
+    let start_radius = start_circle.radius;
+    let end_radius = end_circle.radius;
+    let d = distance(&start_loc, &end_loc);
+    let theta = ((start_radius + end_radius) / d).acos();
+}
+
+fn internal_bitangents(start_circle: Circle, end_circle: Circle) {
+    let start_loc = start_circle.location.float_encode();
+    let end_loc = end_circle.location.float_encode();
+    let start_radius = start_circle.radius;
+    let end_radius = end_circle.radius;
+    let d = distance(&start_loc, &end_loc);
+    let theta = ((start_radius - end_radius).abs() / d).acos();
+}
+
+fn tangent_points() {}
+
+fn neg_tangent_points() {}
+
 #[cfg(test)]
 mod tests {
 
@@ -261,6 +261,11 @@ mod tests {
         let pt = Point::new(float_pt, float_pt_2);
         assert_eq!(pt.float_encode(), vec![float_pt, float_pt_2]);
         assert_eq!(pt.float_encode()[1], float_pt_2);
+    }
+
+    #[test]
+    fn test_distance() {
+
     }
 
     #[test]
