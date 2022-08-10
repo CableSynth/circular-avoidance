@@ -31,16 +31,40 @@ impl Graph {
             if self.edges.get(&node).unwrap().len() > 0 {
                 println!("we have stuff in start")
             }else {
+                let truth_vec = self.circles.iter().map(|c| line_of_sight(&self.start, &self.end, c)).collect_vec();
+                if truth_vec.iter().any(|x| *x) {
+                    
+                } else {
+                    println!("Generate Edges for end")
+                }
                 println!("start is empty")
             }
 
         }
         return self.edges.get(&node).unwrap().to_vec();
     }
+
+    fn external_bitangents(start_circle: Node, end_circle: Node) {
+        let start_loc = start_circle.location.float_encode();
+        let end_loc = end_circle.location.float_encode();
+        let d = distance(&start_loc, &end_loc);
+    }
+
+    fn internal_bitangents() {
+
+    }
+
+    fn tangent_points() {
+
+    }
+
+    fn neg_tangent_points() {
+
+    }
 }
 #[derive(Debug)]
 pub struct Circle {
-    location: [Point; 2],
+    location: Point,
     radius: f64,
     nodes: Vec<Node>,
 }
@@ -48,7 +72,7 @@ pub struct Circle {
 impl Circle {
     fn new(location: [f64; 2], radius: f64) -> Self {
         Self {
-            location: [Point::new(location[0]), Point::new(location[1])],
+            location: Point::new(location[0], location[1]),
             radius,
             nodes: Vec::<Node>::new(),
         }
@@ -56,25 +80,31 @@ impl Circle {
 }
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Copy)]
 pub struct Node {
-    location: [Point; 2],
+    location: Point,
 }
 impl Node {
     fn new(location: [f64; 2]) -> Self {
         Self {
-            location: [Point::new(location[0]), Point::new(location[1])] 
+            location: Point::new(location[0], location[1]) 
         }
     }
 }
 
 #[derive(Clone,Hash, Debug, PartialEq, Eq, Copy)]
-pub struct Point((u64, i16, i8));
+pub struct Point{
+    x: (u64, i16, i8), 
+    y: (u64, i16, i8)
+}
 
 impl Point{
-    fn new(val: f64) -> Point {
-        Point(integer_decode(val))
+    fn new(x: f64, y: f64) -> Point {
+        Point{
+            x: integer_decode(x), y: integer_decode(y)
+        }
     }
-    fn float_encode(self) -> f64 {
-        (self.0.0 as f64) * (self.0.1 as f64).exp2() * self.0.2 as f64
+    fn float_encode(self) -> Vec<f64> {
+        vec![((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64), 
+             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64)]
     }
 }
 
@@ -137,12 +167,12 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
 /// ```
 pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> bool {
     // Calculate u
-    let a = &node_1.location.iter().map(|value| value.float_encode()).collect_vec();
-    let b = &node_2.location.iter().map(|value| value.float_encode()).collect_vec();
+    let a = &node_1.location.float_encode();
+    let b = &node_2.location.float_encode();
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
     for zone in zones {
-        let c = &zone.location.iter().map(|value| value.float_encode()).collect_vec();
+        let c = &zone.location.float_encode();
         let ac_difference = subtrac_pts(c, a);
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
@@ -164,11 +194,11 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> 
 
 pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
     // Calculate u
-    let a = &node_1.location.iter().map(|value| value.float_encode()).collect_vec();
-    let b = &node_2.location.iter().map(|value| value.float_encode()).collect_vec();
+    let a = &node_1.location.float_encode();
+    let b = &node_2.location.float_encode();
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
-    let c = &zone.location.iter().map(|value| value.float_encode()).collect_vec();
+    let c = &zone.location.float_encode();
     let ac_difference = subtrac_pts(c, a);
     let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
@@ -218,8 +248,10 @@ mod tests {
     #[test]
     fn test_point() {
         let float_pt = 2.333;
-        let pt = Point::new(float_pt);
-        assert_eq!(pt.float_encode(), float_pt)
+        let float_pt_2 = 2.333;
+        let pt = Point::new(float_pt, float_pt_2);
+        assert_eq!(pt.float_encode(), vec![float_pt, float_pt_2]);
+        assert_eq!(pt.float_encode()[1], float_pt_2);
     }
 
     #[test]
