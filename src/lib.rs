@@ -1,4 +1,4 @@
-use std::{collections::HashMap, borrow::BorrowMut};
+use std::{borrow::BorrowMut, collections::HashMap};
 
 use itertools::Itertools;
 use std::mem;
@@ -9,58 +9,64 @@ pub struct Graph {
     end: Node,
     circles: Vec<Circle>,
     // Edge: EndNode, weight, theta, direction
-    edges: HashMap<Node, Vec<Edge>>
+    edges: HashMap<Node, Vec<Edge>>,
 }
 
 impl Graph {
-    fn new(start: Node, end: Node, circles: Vec<Circle>) -> Self{
-        Self{
+    fn new(start: Node, end: Node, circles: Vec<Circle>) -> Self {
+        Self {
             start,
             end,
             circles,
-            edges: HashMap::from([(start, Vec::<Edge>::new())])
+            edges: HashMap::from([(start, Vec::<Edge>::new())]),
         }
     }
-    fn neighbors(self, node: Node) -> Vec<Edge>{
+    fn neighbors(self, node: Node) -> Vec<Edge> {
         //There are three cases
         //First Case: node is start. We need to check to see if we had to escape
         //
         if node == self.start {
             println!("We are start");
-            
+
             if self.edges.get(&node).unwrap().len() > 0 {
                 println!("we have stuff in start")
-            }else {
-                let truth_vec = self.circles.iter().map(|c| line_of_sight(&self.start, &self.end, c)).collect_vec();
+            } else {
+                let truth_vec = self
+                    .circles
+                    .iter()
+                    .map(|c| line_of_sight(&self.start, &self.end, c))
+                    .collect_vec();
                 if truth_vec.iter().any(|x| *x) {
-                    
                 } else {
                     println!("Generate Edges for end")
                 }
                 println!("start is empty")
             }
-
         }
         return self.edges.get(&node).unwrap().to_vec();
     }
 
-    fn external_bitangents(start_circle: Node, end_circle: Node) {
+    fn external_bitangents(start_circle: Circle, end_circle: Circle) {
         let start_loc = start_circle.location.float_encode();
         let end_loc = end_circle.location.float_encode();
+        let start_radius = start_circle.radius;
+        let end_radius = end_circle.radius;
         let d = distance(&start_loc, &end_loc);
+        let theta_num = ((start_radius + end_radius) / d).acos();
     }
 
-    fn internal_bitangents() {
-
+    fn internal_bitangents(start_circle: Circle, end_circle: Circle) {
+        let start_loc = start_circle.location.float_encode();
+        let end_loc = end_circle.location.float_encode();
+        let start_radius = start_circle.radius;
+        let end_radius = end_circle.radius;
+        let d = distance(&start_loc, &end_loc);
+        let theta_num = ((start_radius + end_radius) / d).acos();
     }
 
-    fn tangent_points() {
+    fn tangent_points() {}
 
-    }
-
-    fn neg_tangent_points() {
-
-    }
+    fn neg_tangent_points() {}
 }
 #[derive(Debug)]
 pub struct Circle {
@@ -85,26 +91,29 @@ pub struct Node {
 impl Node {
     fn new(location: [f64; 2]) -> Self {
         Self {
-            location: Point::new(location[0], location[1]) 
+            location: Point::new(location[0], location[1]),
         }
     }
 }
 
-#[derive(Clone,Hash, Debug, PartialEq, Eq, Copy)]
-pub struct Point{
-    x: (u64, i16, i8), 
-    y: (u64, i16, i8)
+#[derive(Clone, Hash, Debug, PartialEq, Eq, Copy)]
+pub struct Point {
+    x: (u64, i16, i8),
+    y: (u64, i16, i8),
 }
 
-impl Point{
+impl Point {
     fn new(x: f64, y: f64) -> Point {
-        Point{
-            x: integer_decode(x), y: integer_decode(y)
+        Point {
+            x: integer_decode(x),
+            y: integer_decode(y),
         }
     }
     fn float_encode(self) -> Vec<f64> {
-        vec![((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64), 
-             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64)]
+        vec![
+            ((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64),
+            ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64),
+        ]
     }
 }
 
@@ -118,7 +127,12 @@ pub struct Edge {
 
 impl Edge {
     fn new(edge_type: EdgeType, weight: f32, theta: f32, direction: Vec<f32>) -> Self {
-        Self { edge_type, weight, theta, direction }
+        Self {
+            edge_type,
+            weight,
+            theta,
+            direction,
+        }
     }
 }
 #[derive(Debug, Clone)]
@@ -127,12 +141,7 @@ enum EdgeType {
     Hugging,
 }
 
-
-pub fn build_graph(
-    start: Node,
-    end: Node,
-    zones: Vec<Circle>,
-) -> Graph {
+pub fn build_graph(start: Node, end: Node, zones: Vec<Circle>) -> Graph {
     Graph::new(start, end, zones)
 }
 
