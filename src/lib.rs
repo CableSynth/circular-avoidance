@@ -250,23 +250,23 @@ fn external_bitangents(start_circle: (Vec<f64>, f64), end_circle: (Vec<f64>, f64
     let d = distance(&start_loc, &end_loc);
     //Here we want to do vector math for the tangents as a whole
     if d < start_radius - end_radius {
-        return None
+        return None;
     }
     let center_difference = subtrac_pts(&start_loc, &end_loc);
-    let center_norm = center_difference.iter().map(|val| val/d).collect_vec();
-    //TODO: Figure out what comparison to use for start/end  
-    
+    let center_norm = center_difference.iter().map(|val| val / d).collect_vec();
+    //TODO: Figure out what comparison to use for start/end
+
     for sign1 in (-1..1).step_by(2) {
-        let c = (start_radius - sign1 as f64 * end_radius)/d;
-        if c.powi(2) > 1.0{ continue;}
+        let c = (start_radius - sign1 as f64 * end_radius) / d;
+        if c.powi(2) > 1.0 {
+            continue;
+        }
         let h = (1.0 - c.powi(2)).sqrt();
         for sign2 in (-1..1).step_by(2) {
-            let nx = center_norm[0] * c -sign2 as f64*h as f64*center_norm[1];
-            let ny = center_norm[1] * c +sign2 as f64*h as f64*center_norm[0];
+            let nx = center_norm[0] * c - sign2 as f64 * h as f64 * center_norm[1];
+            let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
         }
     }
-
-
 }
 
 fn internal_bitangents(start_circle: Circle, end_circle: Circle) {
@@ -303,21 +303,20 @@ mod tests {
     }
     #[test]
     fn test_distance() {
-        let d = distance(&vec![0.0,0.0], &vec![0.0,1.0]);
+        let d = distance(&vec![0.0, 0.0], &vec![0.0, 1.0]);
         assert_eq!(d, 1.0)
     }
-    
+
     #[test]
     fn test_3d_distance() {
-        let d = distance(&vec![0.0,0.0, 0.0], &vec![1.0,1.0, 1.0]);
+        let d = distance(&vec![0.0, 0.0, 0.0], &vec![1.0, 1.0, 1.0]);
         assert_eq!(d, 3_f64.sqrt())
     }
 
     #[test]
-    fn hypt_vs_distance (){
-
+    fn hypt_vs_distance() {
         let sum = subtrac_pts(&vec![0.0, 2.0], &vec![0.0, 3.0]);
-        let d = distance(&vec![0.0,0.0], &vec![0.0,1.0]);
+        let d = distance(&vec![0.0, 0.0], &vec![0.0, 1.0]);
         let h = sum[0].hypot(sum[1]);
         assert_eq!(d, h)
     }
