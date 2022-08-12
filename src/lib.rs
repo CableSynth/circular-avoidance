@@ -257,9 +257,12 @@ fn external_bitangents(start_circle: (Vec<f64>, f64), end_circle: (Vec<f64>, f64
     //TODO: Figure out what comparison to use for start/end  
     
     for sign1 in (-1..1).step_by(2) {
-
+        let c = (start_radius - sign1 as f64 * end_radius)/d;
+        if c.powi(2) > 1.0{ continue;}
+        let h = (1.0 - c.powi(2)).sqrt();
         for sign2 in (-1..1).step_by(2) {
-
+            let nx = center_norm[0] * c -sign2 as f64*h as f64*center_norm[1];
+            let ny = center_norm[1] * c +sign2 as f64*h as f64*center_norm[0];
         }
     }
 
