@@ -62,6 +62,13 @@ impl Circle {
         }
     }
 }
+
+impl LocationRadius for Circle {
+    fn loc_radius(&self) -> (Vec<f64>, f64) {
+        (self.location.float_encode(), self.radius)
+    }
+}
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Copy)]
 pub struct Node {
     location: Point,
@@ -71,6 +78,12 @@ impl Node {
         Self {
             location: Point::new(location[0], location[1]),
         }
+    }
+}
+
+impl LocationRadius for Node {
+    fn loc_radius(&self) -> (Vec<f64>, f64) {
+        (self.location.float_encode(), 0)
     }
 }
 
@@ -93,6 +106,10 @@ impl Point {
             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64),
         ]
     }
+}
+
+trait LocationRadius {
+    fn loc_radius(&self) -> (Vec<f64>, f64);
 }
 
 #[derive(Debug, Clone)]
@@ -226,14 +243,27 @@ pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
     let difference: Vec<f64> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
     difference
 }
-
-fn external_bitangents(start_circle: Circle, end_circle: Circle) {
-    let start_loc = start_circle.location.float_encode();
-    let end_loc = end_circle.location.float_encode();
-    let start_radius = start_circle.radius;
-    let end_radius = end_circle.radius;
+///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
+fn external_bitangents(start_circle: (Vec<f64>, f64), end_circle: (Vec<f64>, f64)) {
+    let (start_loc, start_radius) = start_circle;
+    let (end_loc, end_radius) = end_circle;
     let d = distance(&start_loc, &end_loc);
-    let theta = ((start_radius + end_radius) / d).acos();
+    //Here we want to do vector math for the tangents as a whole
+    if d < start_radius - end_radius {
+        return None
+    }
+    let center_difference = subtrac_pts(&start_loc, &end_loc);
+    let center_norm = center_difference.iter().map(|val| val/d).collect_vec();
+    //TODO: Figure out what comparison to use for start/end  
+    
+    for sign1 in (-1..1).step_by(2) {
+
+        for sign2 in (-1..1).step_by(2) {
+
+        }
+    }
+
+
 }
 
 fn internal_bitangents(start_circle: Circle, end_circle: Circle) {
@@ -264,10 +294,30 @@ mod tests {
     }
 
     #[test]
+    fn test_add_pt() {
+        let sum = add_pts(&vec![0.0, 2.0], &vec![0.0, 3.0]);
+        assert_eq!(sum, vec![0.0, 5.0])
+    }
+    #[test]
     fn test_distance() {
-
+        let d = distance(&vec![0.0,0.0], &vec![0.0,1.0]);
+        assert_eq!(d, 1.0)
+    }
+    
+    #[test]
+    fn test_3d_distance() {
+        let d = distance(&vec![0.0,0.0, 0.0], &vec![1.0,1.0, 1.0]);
+        assert_eq!(d, 3_f64.sqrt())
     }
 
+    #[test]
+    fn hypt_vs_distance (){
+
+        let sum = subtrac_pts(&vec![0.0, 2.0], &vec![0.0, 3.0]);
+        let d = distance(&vec![0.0,0.0], &vec![0.0,1.0]);
+        let h = sum[0].hypot(sum[1]);
+        assert_eq!(d, h)
+    }
     #[test]
     fn graph_build() {
         let start = Node::new([0.0, 0.0]);
