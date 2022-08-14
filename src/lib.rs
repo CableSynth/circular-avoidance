@@ -14,8 +14,8 @@ pub struct Graph {
 
 impl Graph {
     pub fn build_graph(start: Node, end: Node, zones: Vec<Circle>) -> Graph {
-    Graph::new(start, end, zones)
-}
+        Graph::new(start, end, zones)
+    }
     fn new(start: Node, end: Node, circles: Vec<Circle>) -> Self {
         Self {
             start,
@@ -41,12 +41,20 @@ impl Graph {
                     .collect_vec();
                 if truth_vec.iter().any(|x| *x) {
                     println!("Build bitangents for all zones from start");
-                    
                 } else {
                     println!("Generate Edges for end");
-                    let tangent_list = generate_tangents(self.start.loc_radius(), self.end.loc_radius());
-                    println!("{:?}", tangent_list.iter().map(|(val1, val2)| (val1.location.float_encode(), val2.location.float_encode())).collect_vec());
-                    
+                    let tangent_list =
+                        generate_tangents(self.start.loc_radius(), self.end.loc_radius());
+                    println!(
+                        "{:?}",
+                        tangent_list
+                            .iter()
+                            .map(|(val1, val2)| (
+                                val1.location.float_encode(),
+                                val2.location.float_encode()
+                            ))
+                            .collect_vec()
+                    );
                 }
             }
         }
@@ -128,7 +136,7 @@ pub struct Edge {
 }
 
 impl Edge {
-    fn new(node:Node, weight: f64, theta: f32, direction: Vec<f64>) -> Self {
+    fn new(node: Node, weight: f64, theta: f32, direction: Vec<f64>) -> Self {
         Self {
             node,
             weight,
@@ -141,7 +149,7 @@ impl Edge {
         let end_loc = &end.location.float_encode();
         let distance = distance(&start_loc, &end_loc);
         let comb_vec = subtrac_pts(&end_loc, &start_loc);
-        let direction = comb_vec.iter().map(|val| val/distance).collect_vec();
+        let direction = comb_vec.iter().map(|val| val / distance).collect_vec();
         Edge::new(end, distance, theta, direction)
     }
 }
@@ -271,12 +279,12 @@ fn generate_tangents(
         if c.powi(2) > 1.0 {
             continue;
         }
-        let h = (1.0 - c*c).sqrt().max(0.0);
+        let h = (1.0 - c * c).sqrt().max(0.0);
         for sign2 in (-1..1).step_by(2) {
             let nx = center_norm[0] * c - sign2 as f64 * h as f64 * center_norm[1];
             let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
-            
-            let tangent_1_loc = [ 
+
+            let tangent_1_loc = [
                 start_loc[0] + start_radius * nx,
                 start_loc[1] + start_radius * ny,
             ];
@@ -294,12 +302,9 @@ fn generate_tangents(
     return tangents;
 }
 
-
 fn tangent_points() {}
 
 fn neg_tangent_points() {}
-
-
 
 #[cfg(test)]
 mod tests {
