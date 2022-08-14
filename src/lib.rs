@@ -122,13 +122,13 @@ trait LocationRadius {
 #[derive(Debug, Clone)]
 pub struct Edge {
     node: Node,
-    weight: f32,
+    weight: f64,
     theta: f32,
     direction: Vec<f64>,
 }
 
 impl Edge {
-    fn new(node:Node, weight: f32, theta: f32, direction: Vec<f64>) -> Self {
+    fn new(node:Node, weight: f64, theta: f32, direction: Vec<f64>) -> Self {
         Self {
             node,
             weight,
@@ -142,6 +142,7 @@ impl Edge {
         let distance = distance(&start_loc, &end_loc);
         let comb_vec = subtrac_pts(&end_loc, &start_loc);
         let direction = comb_vec.iter().map(|val| val/distance).collect_vec();
+        Edge::new(end, distance, theta, direction)
     }
 }
 
