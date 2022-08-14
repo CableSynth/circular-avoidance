@@ -13,6 +13,9 @@ pub struct Graph {
 }
 
 impl Graph {
+    pub fn build_graph(start: Node, end: Node, zones: Vec<Circle>) -> Graph {
+    Graph::new(start, end, zones)
+}
     fn new(start: Node, end: Node, circles: Vec<Circle>) -> Self {
         Self {
             start,
@@ -21,7 +24,7 @@ impl Graph {
             edges: HashMap::from([(start, Vec::<Edge>::new())]),
         }
     }
-    fn neighbors(self, node: Node) -> Vec<Edge> {
+    pub fn neighbors(self, node: Node) -> Vec<Edge> {
         //There are three cases
         //First Case: node is start. We need to check to see if we had to escape
         //
@@ -37,10 +40,14 @@ impl Graph {
                     .map(|c| line_of_sight(&self.start, &self.end, c))
                     .collect_vec();
                 if truth_vec.iter().any(|x| *x) {
+                    println!("Build bitangents for all zones from start");
+                    
                 } else {
-                    println!("Generate Edges for end")
+                    println!("Generate Edges for end");
+                    let tangent_list = generate_tangents(self.start.loc_radius(), self.end.loc_radius());
+                    println!("{:?}", tangent_list.iter().map(|(val1, val2)| (val1.location.float_encode(), val2.location.float_encode())).collect_vec());
+                    
                 }
-                println!("start is empty")
             }
         }
         return self.edges.get(&node).unwrap().to_vec();
@@ -54,7 +61,7 @@ pub struct Circle {
 }
 
 impl Circle {
-    fn new(location: [f64; 2], radius: f64) -> Self {
+    pub fn new(location: [f64; 2], radius: f64) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
             radius,
@@ -74,7 +81,7 @@ pub struct Node {
     location: Point,
 }
 impl Node {
-    fn new(location: [f64; 2]) -> Self {
+    pub fn new(location: [f64; 2]) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
         }
@@ -83,7 +90,7 @@ impl Node {
 
 impl LocationRadius for Node {
     fn loc_radius(&self) -> (Vec<f64>, f64) {
-        (self.location.float_encode(), 0)
+        (self.location.float_encode(), 0.0)
     }
 }
 
@@ -114,30 +121,28 @@ trait LocationRadius {
 
 #[derive(Debug, Clone)]
 pub struct Edge {
-    edge_type: EdgeType,
+    node: Node,
     weight: f32,
     theta: f32,
-    direction: Vec<f32>,
+    direction: Vec<f64>,
 }
 
 impl Edge {
-    fn new(edge_type: EdgeType, weight: f32, theta: f32, direction: Vec<f32>) -> Self {
+    fn new(node:Node, weight: f32, theta: f32, direction: Vec<f64>) -> Self {
         Self {
-            edge_type,
+            node,
             weight,
             theta,
             direction,
         }
     }
-}
-#[derive(Debug, Clone)]
-enum EdgeType {
-    Surfing,
-    Hugging,
-}
-
-pub fn build_graph(start: Node, end: Node, zones: Vec<Circle>) -> Graph {
-    Graph::new(start, end, zones)
+    fn generate_edge(start: Node, end: Node, theta: f32) -> Edge {
+        let start_loc = &start.location.float_encode();
+        let end_loc = &end.location.float_encode();
+        let distance = distance(&start_loc, &end_loc);
+        let comb_vec = subtrac_pts(&end_loc, &start_loc);
+        let direction = comb_vec.iter().map(|val| val/distance).collect_vec();
+    }
 }
 
 //Pulled from old Rust std
@@ -244,13 +249,17 @@ pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
     difference
 }
 ///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
-fn external_bitangents(start_circle: (Vec<f64>, f64), end_circle: (Vec<f64>, f64)) {
+fn generate_tangents(
+    start_circle: (Vec<f64>, f64),
+    end_circle: (Vec<f64>, f64),
+) -> Vec<(Node, Node)> {
     let (start_loc, start_radius) = start_circle;
     let (end_loc, end_radius) = end_circle;
-    let d = distance(&start_loc, &end_loc);
+    let d = distance(&end_loc, &start_loc);
+    let mut tangents: Vec<(Node, Node)> = Vec::new();
     //Here we want to do vector math for the tangents as a whole
     if d < start_radius - end_radius {
-        return None;
+        return tangents;
     }
     let center_difference = subtrac_pts(&start_loc, &end_loc);
     let center_norm = center_difference.iter().map(|val| val / d).collect_vec();
@@ -261,26 +270,35 @@ fn external_bitangents(start_circle: (Vec<f64>, f64), end_circle: (Vec<f64>, f64
         if c.powi(2) > 1.0 {
             continue;
         }
-        let h = (1.0 - c.powi(2)).sqrt();
+        let h = (1.0 - c*c).sqrt().max(0.0);
         for sign2 in (-1..1).step_by(2) {
             let nx = center_norm[0] * c - sign2 as f64 * h as f64 * center_norm[1];
             let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
+            
+            let tangent_1_loc = [ 
+                start_loc[0] + start_radius * nx,
+                start_loc[1] + start_radius * ny,
+            ];
+            let tangent_2_loc = [
+                end_loc[0] + sign1 as f64 * end_radius * nx,
+                end_loc[1] + sign1 as f64 * end_radius * ny,
+            ];
+
+            let tan_node_start = Node::new(tangent_1_loc);
+            let tan_node_end = Node::new(tangent_2_loc);
+
+            tangents.push((tan_node_start, tan_node_end));
         }
     }
+    return tangents;
 }
 
-fn internal_bitangents(start_circle: Circle, end_circle: Circle) {
-    let start_loc = start_circle.location.float_encode();
-    let end_loc = end_circle.location.float_encode();
-    let start_radius = start_circle.radius;
-    let end_radius = end_circle.radius;
-    let d = distance(&start_loc, &end_loc);
-    let theta = ((start_radius - end_radius).abs() / d).acos();
-}
 
 fn tangent_points() {}
 
 fn neg_tangent_points() {}
+
+
 
 #[cfg(test)]
 mod tests {
@@ -326,7 +344,7 @@ mod tests {
         let end = Node::new([5.0, 5.0]);
         let circle = Circle::new([2.0, 2.0], 2.0);
         let circle_vec = vec![circle];
-        let graph = build_graph(start, end, circle_vec);
+        let graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
         assert_eq!(nodes.len(), 0);
         // print!("{:?}", graph)
@@ -336,6 +354,10 @@ mod tests {
     fn simple_graph_no_circle() {
         let start = Node::new([0.0, 0.0]);
         let end = Node::new([5.0, 5.0]);
+        let circle_vec = Vec::<Circle>::new();
+        let graph = Graph::build_graph(start, end, circle_vec);
+        let nodes = graph.neighbors(start);
+        assert_eq!(nodes.len(), 0);
         // print!("{:?}", graph)
     }
 }
