@@ -2,6 +2,7 @@ use std::{borrow::BorrowMut, collections::HashMap};
 
 use itertools::Itertools;
 use std::mem;
+use uuid::Uuid;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -41,20 +42,18 @@ impl Graph {
                     .collect_vec();
                 if truth_vec.iter().any(|x| *x) {
                     println!("Build bitangents for all zones from start");
+                    let mut possible_tangents = Vec::<(Node, Node)>::new();
+                    for c in self.circles {
+                        let tan_pts = generate_tangents(self.start.loc_radius(), c.loc_radius());
+                        possible_tangents.extend(tan_pts);
+                    }
+                    let valid_tangents = possible_tangents.iter().map(|s, e| {
+                                                                                                                         
+                    });
                 } else {
                     println!("Generate Edges for end");
-                    let tangent_list =
-                        generate_tangents(self.start.loc_radius(), self.end.loc_radius());
-                    println!(
-                        "{:?}",
-                        tangent_list
-                            .iter()
-                            .map(|(val1, val2)| (
-                                val1.location.float_encode(),
-                                val2.location.float_encode()
-                            ))
-                            .collect_vec()
-                    );
+
+                    return vec![Edge::generate_edge(self.start, self.end, f64::INFINITY)];
                 }
             }
         }
@@ -64,6 +63,7 @@ impl Graph {
 #[derive(Debug)]
 pub struct Circle {
     location: Point,
+    uuid: Uuid,
     radius: f64,
     nodes: Vec<Node>,
 }
@@ -72,6 +72,7 @@ impl Circle {
     pub fn new(location: [f64; 2], radius: f64) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
+            uuid: Uuid::new_v4(),
             radius,
             nodes: Vec::<Node>::new(),
         }
@@ -131,12 +132,12 @@ trait LocationRadius {
 pub struct Edge {
     node: Node,
     weight: f64,
-    theta: f32,
+    theta: f64,
     direction: Vec<f64>,
 }
 
 impl Edge {
-    fn new(node: Node, weight: f64, theta: f32, direction: Vec<f64>) -> Self {
+    fn new(node: Node, weight: f64, theta: f64, direction: Vec<f64>) -> Self {
         Self {
             node,
             weight,
@@ -144,7 +145,7 @@ impl Edge {
             direction,
         }
     }
-    fn generate_edge(start: Node, end: Node, theta: f32) -> Edge {
+    fn generate_edge(start: Node, end: Node, theta: f64) -> Edge {
         let start_loc = &start.location.float_encode();
         let end_loc = &end.location.float_encode();
         let distance = distance(&start_loc, &end_loc);
