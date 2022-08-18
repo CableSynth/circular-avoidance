@@ -42,14 +42,22 @@ impl Graph {
                     .collect_vec();
                 if truth_vec.iter().any(|x| *x) {
                     println!("Build bitangents for all zones from start");
-                    let mut possible_tangents = Vec::<(Node, Node)>::new();
-                    for c in self.circles {
-                        let tan_pts = generate_tangents(self.start.loc_radius(), c.loc_radius());
-                        possible_tangents.extend(tan_pts);
-                    }
-                    let valid_tangents = possible_tangents.iter().map(|s, e| {
-                                                                                                                         
-                    });
+                    let mut possible_tangents = self
+                        .circles
+                        .iter()
+                        .flat_map(|c| generate_tangents(self.start.loc_radius(), c.loc_radius()))
+                        .collect_vec();
+                    let temp_c = Vec::from(self.circles);
+                    let valid_tangents = possible_tangents
+                        .iter()
+                        .filter_map(|(s, e)| {
+                            if line_of_sight_zones(s, e, &temp_c) {
+                                None
+                            } else {
+                                Some((s, e))
+                            }
+                        })
+                        .collect_vec();
                 } else {
                     println!("Generate Edges for end");
 
@@ -60,7 +68,7 @@ impl Graph {
         return self.edges.get(&node).unwrap().to_vec();
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Circle {
     location: Point,
     uuid: Uuid,
@@ -184,13 +192,13 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
 /// let result = line_of_sight(node_1, node_2, zones);
 /// assert_eq!(result, );
 /// ```
-pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: Vec<Circle>) -> bool {
+pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bool {
     // Calculate u
     let a = &node_1.location.float_encode();
     let b = &node_2.location.float_encode();
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
-    for zone in zones {
+    for zone in zones.iter() {
         let c = &zone.location.float_encode();
         let ac_difference = subtrac_pts(c, a);
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
