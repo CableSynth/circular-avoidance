@@ -207,6 +207,8 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bo
     for zone in zones.iter() {
         let c = &zone.location.float_encode();
         let ac_difference = subtrac_pts(c, a);
+        let top_u = dot_product(&ac_difference, &ab_difference);
+        let temp_u = top_u/ab_dot;
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
         // Clamp u and find e the point that intersects ab and passes through c
