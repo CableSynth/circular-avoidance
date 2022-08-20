@@ -3,6 +3,8 @@ use std::{borrow::BorrowMut, collections::HashMap};
 use itertools::Itertools;
 use std::mem;
 use uuid::Uuid;
+use rust_decimal_macros::dec;
+use rust_decimal::prelude::*;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -119,22 +121,16 @@ impl LocationRadius for Node {
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, Copy)]
 pub struct Point {
-    x: (u64, i16, i8),
-    y: (u64, i16, i8),
+    x: Decimal,
+    y: Decimal,
 }
 
 impl Point {
     fn new(x: f32, y: f32) -> Point {
         Point {
-            x: integer_decode(x),
-            y: integer_decode(y),
+            x: Decimal::from_f32(x).expect("Unable to extract"),
+            y: Decimal::from_f32(y).expect("Unable to extract"),
         }
-    }
-    fn float_encode(self) -> Vec<f32> {
-        vec![
-            ((self.x.0 as f32) * (self.x.1 as f32).exp2() * self.x.2 as f32),
-            ((self.y.0 as f32) * (self.y.1 as f32).exp2() * self.y.2 as f32),
-        ]
     }
 }
 
@@ -160,8 +156,8 @@ impl Edge {
         }
     }
     fn generate_edge(start: Node, end: Node, theta: f32) -> Edge {
-        let start_loc = &start.location.float_encode();
-        let end_loc = &end.location.float_encode();
+        let start_loc = &start.location;
+        let end_loc = &end.location;
         let distance = distance(&start_loc, &end_loc);
         let comb_vec = subtrac_pts(&end_loc, &start_loc);
         let direction = comb_vec.iter().map(|val| val / distance).collect_vec();
@@ -207,8 +203,6 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bo
     for zone in zones.iter() {
         let c = &zone.location.float_encode();
         let ac_difference = subtrac_pts(c, a);
-        let top_u = dot_product(&ac_difference, &ab_difference);
-        let temp_u = top_u/ab_dot;
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
         // Clamp u and find e the point that intersects ab and passes through c
@@ -256,8 +250,8 @@ pub fn dot_product(p1: &[f32], p2: &[f32]) -> f32 {
     dot
 }
 
-pub fn distance(p1: &[f32], p2: &[f32]) -> f32 {
-    let square_sum: f32 = p1
+pub fn distance(p1: &[Decimal], p2: &[Decimal]) -> Option<Decimal> {
+    let square_sum: Decimal = p1
         .iter()
         .zip(p2.iter())
         .map(|(x1, x2)| (x2 - x1).powi(2))
