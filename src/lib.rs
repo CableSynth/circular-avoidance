@@ -63,13 +63,13 @@ impl Graph {
                         .collect_vec();
                     
                     for tangent_pair in valid_tangents {
-                        let edg = Edge::generate_edge(self.start, *tangent_pair.1, f32::INFINITY);
+                        let edg = Edge::generate_edge(self.start, *tangent_pair.1, Decimal::from_f32(f32::INFINITY).unwrap());
                         self.edges.entry(self.start).and_modify(|edges| edges.push(edg));
                     }
                 } else {
                     println!("Generate Edges for end");
 
-                    return vec![Edge::generate_edge(self.start, self.end, f32::INFINITY)];
+                    return vec![Edge::generate_edge(self.start, self.end, Decimal::from_f32(f32::INFINITY).unwrap())];
                 }
             }
         }
@@ -80,12 +80,12 @@ impl Graph {
 pub struct Circle {
     location: Point,
     uuid: Uuid,
-    radius: f32,
+    radius: Decimal,
     nodes: Vec<Node>,
 }
 
 impl Circle {
-    pub fn new(location: [f32; 2], radius: f32) -> Self {
+    pub fn new(location: [f32; 2], radius: Decimal) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
             uuid: Uuid::new_v4(),
@@ -96,8 +96,8 @@ impl Circle {
 }
 
 impl LocationRadius for Circle {
-    fn loc_radius(&self) -> (Vec<f32>, f32) {
-        (self.location.float_encode(), self.radius)
+    fn loc_radius(&self) -> (Vec<Decimal>, Decimal) {
+        (self.location.as_vec(), self.radius)
     }
 }
 
@@ -111,11 +111,16 @@ impl Node {
             location: Point::new(location[0], location[1]),
         }
     }
+    pub fn from_dec(location: [Decimal; 2]) -> Self {
+        Self {
+            location: Point::from_dec(location[0], location[1])
+        }
+    }
 }
 
 impl LocationRadius for Node {
-    fn loc_radius(&self) -> (Vec<f32>, f32) {
-        (self.location.float_encode(), 0.0)
+    fn loc_radius(&self) -> (Vec<Decimal>, Decimal) {
+        (self.location.as_vec(), dec!(0.0))
     }
 }
 
@@ -132,22 +137,30 @@ impl Point {
             y: Decimal::from_f32(y).expect("Unable to extract"),
         }
     }
+
+    fn from_dec(x: Decimal, y: Decimal) -> Self {
+        Self { x, y }
+    }
+
+    fn as_vec(self) -> Vec<Decimal>{
+        vec![self.x, self.y]
+    }
 }
 
 trait LocationRadius {
-    fn loc_radius(&self) -> (Vec<f32>, f32);
+    fn loc_radius(&self) -> (Vec<Decimal>, Decimal);
 }
 
 #[derive(Debug, Clone)]
 pub struct Edge {
     node: Node,
-    weight: f32,
-    theta: f32,
-    direction: Vec<f32>,
+    weight: Decimal,
+    theta: Decimal,
+    direction: Vec<Decimal>,
 }
 
 impl Edge {
-    fn new(node: Node, weight: f32, theta: f32, direction: Vec<f32>) -> Self {
+    fn new(node: Node, weight: Decimal, theta: Decimal, direction: Vec<Decimal>) -> Self {
         Self {
             node,
             weight,
@@ -155,10 +168,10 @@ impl Edge {
             direction,
         }
     }
-    fn generate_edge(start: Node, end: Node, theta: f32) -> Edge {
-        let start_loc = &start.location;
-        let end_loc = &end.location;
-        let distance = distance(&start_loc, &end_loc);
+    fn generate_edge(start: Node, end: Node, theta: Decimal) -> Edge {
+        let start_loc = &start.location.as_vec();
+        let end_loc = &end.location.as_vec();
+        let distance = distance(&start_loc, &end_loc).expect("bad value");
         let comb_vec = subtrac_pts(&end_loc, &start_loc);
         let direction = comb_vec.iter().map(|val| val / distance).collect_vec();
         Edge::new(end, distance, theta, direction)
@@ -196,22 +209,22 @@ fn integer_decode(val: f32) -> (u64, i16, i8) {
 /// ```
 pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bool {
     // Calculate u
-    let a = &node_1.location.float_encode();
-    let b = &node_2.location.float_encode();
+    let a = &node_1.location.as_vec();
+    let b = &node_2.location.as_vec();
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
     for zone in zones.iter() {
-        let c = &zone.location.float_encode();
+        let c = &zone.location.as_vec();
         let ac_difference = subtrac_pts(c, a);
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
         // Clamp u and find e the point that intersects ab and passes through c
-        let clamp_product: Vec<f32> = ab_difference
+        let clamp_product: Vec<Decimal> = ab_difference
             .iter()
-            .map(|value| value * u.clamp(0.0, 1.0))
+            .map(|value| value * u.clamp(dec!(0.0), dec!(1.0)))
             .collect();
         let e = add_pts(a, &clamp_product);
-        let d = distance(c, &e);
+        let d = distance(c, &e).expect("Bad value");
 
         if d < zone.radius {
             return true;
@@ -223,16 +236,16 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bo
 
 pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
     // Calculate u
-    let a = &node_1.location.float_encode();
-    let b = &node_2.location.float_encode();
+    let a = &node_1.location.as_vec();
+    let b = &node_2.location.as_vec();
     let ab_difference = subtrac_pts(b, a);
     let ab_dot = dot_product(&ab_difference, &ab_difference);
-    let c = &zone.location.float_encode();
+    let c = &zone.location.as_vec();
     let ac_difference = subtrac_pts(c, a);
     let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
     // Clamp u and find e the point that intersects ab and passes through c
-    let clamp_product: Vec<f32> = ab_difference
+    let clamp_product: Vec<Decimal> = ab_difference
         .iter()
         .map(|value| value * u.clamp(0.0, 1.0))
         .collect();
@@ -245,8 +258,8 @@ pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
 
     false
 }
-pub fn dot_product(p1: &[f32], p2: &[f32]) -> f32 {
-    let dot: f32 = p1.iter().zip(p2.iter()).map(|(a, b)| a * b).sum();
+pub fn dot_product(p1: &[Decimal], p2: &[Decimal]) -> Decimal {
+    let dot: Decimal = p1.iter().zip(p2.iter()).map(|(a, b)| a * b).sum();
     dot
 }
 
@@ -259,23 +272,23 @@ pub fn distance(p1: &[Decimal], p2: &[Decimal]) -> Option<Decimal> {
     square_sum.sqrt()
 }
 
-pub fn add_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
-    let point_sum: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 + x2).collect();
+pub fn add_pts(p1: &[Decimal], p2: &[Decimal]) -> Vec<Decimal> {
+    let point_sum: Vec<Decimal> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 + x2).collect();
     point_sum
 }
 
-pub fn subtrac_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
-    let difference: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
+pub fn subtrac_pts(p1: &[Decimal], p2: &[Decimal]) -> Vec<Decimal> {
+    let difference: Vec<Decimal> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x2 - x1).collect();
     difference
 }
 ///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
 fn generate_tangents(
-    start_circle: (Vec<f32>, f32),
-    end_circle: (Vec<f32>, f32),
+    start_circle: (Vec<Decimal>, Decimal),
+    end_circle: (Vec<Decimal>, Decimal),
 ) -> Vec<(Node, Node)> {
     let (start_loc, start_radius) = start_circle;
     let (end_loc, end_radius) = end_circle;
-    let d = distance(&end_loc, &start_loc);
+    let d = distance(&end_loc, &start_loc).expect("bad value in distance");
     let mut tangents: Vec<(Node, Node)> = Vec::new();
     //Here we want to do vector math for the tangents as a whole
     if d < start_radius - end_radius {
@@ -286,22 +299,24 @@ fn generate_tangents(
     //TODO: Figure out what comparison to use for start/end
 
     for sign1 in (-1..1).step_by(2) {
-        let c = (start_radius - sign1 as f32 * end_radius) / d;
-        if c.powi(2) > 1.0 {
+        let dec_sign1 = Decimal::from_i32(sign1).unwrap();
+        let c = (start_radius - dec_sign1 * end_radius) / d;
+        if c.powi(2) > dec!(1.0) {
             continue;
         }
-        let h = (1.0 - c * c).sqrt().max(0.0);
+        let h = (dec!(1.0) - c * c).sqrt().expect("bad value").max(dec!(0.0));
         for sign2 in (-1..1).step_by(2) {
-            let nx = center_norm[0] * c - sign2 as f32 * h as f32 * center_norm[1];
-            let ny = center_norm[1] * c + sign2 as f32 * h as f32 * center_norm[0];
+
+            let nx = center_norm[0] * c - sign2 as Decimal * h * center_norm[1];
+            let ny = center_norm[1] * c + sign2 * h * center_norm[0];
 
             let tangent_1_loc = [
-                start_loc[0] + start_radius * nx,
+                (start_loc[0] + start_radius * nx).to_f32(),
                 start_loc[1] + start_radius * ny,
             ];
             let tangent_2_loc = [
-                end_loc[0] + sign1 as f32 * end_radius * nx,
-                end_loc[1] + sign1 as f32 * end_radius * ny,
+                end_loc[0] + sign1 * end_radius * nx,
+                end_loc[1] + sign1 * end_radius * ny,
             ];
 
             let tan_node_start = Node::new(tangent_1_loc);
