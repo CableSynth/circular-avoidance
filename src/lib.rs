@@ -1,10 +1,10 @@
 use std::{borrow::BorrowMut, collections::HashMap};
 
 use itertools::Itertools;
+use rust_decimal::prelude::*;
+use rust_decimal_macros::dec;
 use std::mem;
 use uuid::Uuid;
-use rust_decimal_macros::dec;
-use rust_decimal::prelude::*;
 
 #[derive(Debug)]
 pub struct Graph {
@@ -61,15 +61,25 @@ impl Graph {
                             }
                         })
                         .collect_vec();
-                    
+
                     for tangent_pair in valid_tangents {
-                        let edg = Edge::generate_edge(self.start, *tangent_pair.1, Decimal::from_f32(f32::INFINITY).unwrap());
-                        self.edges.entry(self.start).and_modify(|edges| edges.push(edg));
+                        let edg = Edge::generate_edge(
+                            self.start,
+                            *tangent_pair.1,
+                            Decimal::from_f32(f32::INFINITY).unwrap(),
+                        );
+                        self.edges
+                            .entry(self.start)
+                            .and_modify(|edges| edges.push(edg));
                     }
                 } else {
                     println!("Generate Edges for end");
 
-                    return vec![Edge::generate_edge(self.start, self.end, Decimal::from_f32(f32::INFINITY).unwrap())];
+                    return vec![Edge::generate_edge(
+                        self.start,
+                        self.end,
+                        Decimal::from_f32(f32::INFINITY).unwrap(),
+                    )];
                 }
             }
         }
@@ -113,7 +123,7 @@ impl Node {
     }
     pub fn from_dec(location: [Decimal; 2]) -> Self {
         Self {
-            location: Point::from_dec(location[0], location[1])
+            location: Point::from_dec(location[0], location[1]),
         }
     }
 }
@@ -142,7 +152,7 @@ impl Point {
         Self { x, y }
     }
 
-    fn as_vec(self) -> Vec<Decimal>{
+    fn as_vec(self) -> Vec<Decimal> {
         vec![self.x, self.y]
     }
 }
@@ -179,19 +189,20 @@ impl Edge {
 }
 
 //Pulled from old Rust std
-fn integer_decode(val: f32) -> (u64, i16, i8) {
-    let bits: u64 = unsafe { mem::transmute(val as f64) };
-    let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
-    let mut exponent: i16 = ((bits >> 52) & 0x7ff) as i16;
-    let mantissa = if exponent == 0 {
-        (bits & 0xfffffffffffff) << 1
-    } else {
-        (bits & 0xfffffffffffff) | 0x10000000000000
-    };
+// really want to use this but don't need it at this time
+// fn integer_decode(val: f32) -> (u64, i16, i8) {
+//     let bits: u64 = unsafe { mem::transmute(val as f64) };
+//     let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
+//     let mut exponent: i16 = ((bits >> 52) & 0x7ff) as i16;
+//     let mantissa = if exponent == 0 {
+//         (bits & 0xfffffffffffff) << 1
+//     } else {
+//         (bits & 0xfffffffffffff) | 0x10000000000000
+//     };
 
-    exponent -= 1023 + 52;
-    (mantissa, exponent, sign)
-}
+//     exponent -= 1023 + 52;
+//     (mantissa, exponent, sign)
+// }
 
 ///
 /// # Arguments
@@ -247,10 +258,10 @@ pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
     // Clamp u and find e the point that intersects ab and passes through c
     let clamp_product: Vec<Decimal> = ab_difference
         .iter()
-        .map(|value| value * u.clamp(0.0, 1.0))
+        .map(|value| value * u.clamp(dec!(0.0), dec!(1.0)))
         .collect();
     let e = add_pts(a, &clamp_product);
-    let d = distance(c, &e);
+    let d = distance(c, &e).expect("distance failed");
 
     if d < zone.radius {
         return true;
@@ -304,33 +315,32 @@ fn generate_tangents(
         if c.powi(2) > dec!(1.0) {
             continue;
         }
-        let h = (dec!(1.0) - c * c).sqrt().expect("bad value").max(dec!(0.0));
+        let h = (dec!(1.0) - c * c)
+            .sqrt()
+            .expect("bad value")
+            .max(dec!(0.0));
         for sign2 in (-1..1).step_by(2) {
-
-            let nx = center_norm[0] * c - sign2 as Decimal * h * center_norm[1];
-            let ny = center_norm[1] * c + sign2 * h * center_norm[0];
+            let dec_sign2 = Decimal::from_i32(sign2).unwrap();
+            let nx = center_norm[0] * c - dec_sign2 * h * center_norm[1];
+            let ny = center_norm[1] * c + dec_sign2 * h * center_norm[0];
 
             let tangent_1_loc = [
-                (start_loc[0] + start_radius * nx).to_f32(),
+                start_loc[0] + start_radius * nx,
                 start_loc[1] + start_radius * ny,
             ];
             let tangent_2_loc = [
-                end_loc[0] + sign1 * end_radius * nx,
-                end_loc[1] + sign1 * end_radius * ny,
+                end_loc[0] + dec_sign1 * end_radius * nx,
+                end_loc[1] + dec_sign1 * end_radius * ny,
             ];
 
-            let tan_node_start = Node::new(tangent_1_loc);
-            let tan_node_end = Node::new(tangent_2_loc);
+            let tan_node_start = Node::from_dec(tangent_1_loc);
+            let tan_node_end = Node::from_dec(tangent_2_loc);
 
             tangents.push((tan_node_start, tan_node_end));
         }
     }
     return tangents;
 }
-
-fn tangent_points() {}
-
-fn neg_tangent_points() {}
 
 #[cfg(test)]
 mod tests {
@@ -339,22 +349,22 @@ mod tests {
 
     #[test]
     fn test_point() {
-        let float_pt = 2.333;
-        let float_pt_2 = 2.333;
-        let pt = Point::new(float_pt, float_pt_2);
-        assert_eq!(pt.float_encode(), vec![float_pt, float_pt_2]);
-        assert_eq!(pt.float_encode()[1], float_pt_2);
+        let float_pt = dec!(2.333);
+        let float_pt_2 = dec!(2.333);
+        let pt = Point::from_dec(float_pt, float_pt_2);
+        assert_eq!(pt.as_vec(), vec![float_pt, float_pt_2]);
+        assert_eq!(pt.as_vec()[1], float_pt_2);
     }
 
     #[test]
     fn test_add_pt() {
-        let sum = add_pts(&vec![0.0, 2.0], &vec![0.0, 3.0]);
-        assert_eq!(sum, vec![0.0, 5.0])
+        let sum = add_pts(&vec![dec!(0.0), dec!(2.0)], &vec![dec!(0.0), dec!(3.0)]);
+        assert_eq!(sum, vec![dec!(0.0), dec!(5.0)])
     }
     #[test]
     fn test_distance() {
-        let d = distance(&vec![0.0, 0.0], &vec![0.0, 1.0]);
-        assert_eq!(d, 1.0)
+        let d = distance(&vec![dec!(0.0), dec!(0.0)], &vec![dec!(0.0), dec!(1.0)]).unwrap();
+        assert_eq!(d, dec!(1.0))
     }
 
     #[test]
@@ -363,23 +373,10 @@ mod tests {
     }
 
     #[test]
-    fn test_3d_distance() {
-        let d = distance(&vec![0.0, 0.0, 0.0], &vec![1.0, 1.0, 1.0]);
-        assert_eq!(d, 3_f32.sqrt())
-    }
-
-    #[test]
-    fn hypt_vs_distance() {
-        let sum = subtrac_pts(&vec![0.0, 2.0], &vec![0.0, 3.0]);
-        let d = distance(&vec![0.0, 0.0], &vec![0.0, 1.0]);
-        let h = sum[0].hypot(sum[1]);
-        assert_eq!(d, h)
-    }
-    #[test]
     fn graph_build() {
         let start = Node::new([0.0, 0.0]);
         let end = Node::new([5.0, 5.0]);
-        let circle = Circle::new([2.0, 2.0], 2.0);
+        let circle = Circle::new([2.0, 2.0], dec!(2.0));
         let circle_vec = vec![circle];
         let graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
