@@ -75,11 +75,7 @@ impl Graph {
                 } else {
                     println!("Generate Edges for end");
 
-                    return vec![Edge::generate_edge(
-                        self.start,
-                        self.end,
-                        Decimal::from_f32(f32::INFINITY).unwrap(),
-                    )];
+                    return vec![Edge::generate_edge(self.start, self.end, Decimal::MAX)];
                 }
             }
         }
@@ -170,12 +166,12 @@ pub struct Edge {
 }
 
 impl Edge {
-    fn new(node: Node, weight: Decimal, theta: Decimal, direction: Vec<Decimal>) -> Self {
-        Self {
-            node,
-            weight,
-            theta,
-            direction,
+    fn new(n: Node, w: Decimal, t: Decimal, d: Vec<Decimal>) -> Edge {
+        Edge {
+            node: n,
+            weight: w,
+            direction: d,
+            theta: t,
         }
     }
     fn generate_edge(start: Node, end: Node, theta: Decimal) -> Edge {
