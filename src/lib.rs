@@ -31,50 +31,49 @@ impl Graph {
         //First Case: node is start. We need to check to see if we had to escape
         //Second Case: we are at a zone. Find all bitangents from zone to others
         //
-        if node == self.start {
-
+        if self.edges.get(&node).unwrap().len() > 0 {
+            println!("we have stuff in start");
+            return self.edges.get(&node).unwrap().to_vec();
+        } else if node == self.start {
             println!("We are start");
 
             //Check if we escaped
-            if self.edges.get(&node).unwrap().len() > 0 {
-                println!("we have stuff in start")
-            } else {
-                let truth = line_of_sight_zones(&self.start, &self.end, &self.circles);
-                
-                //are any circles in our way
-                if truth {
-                    println!("Build bitangents for all zones from start");
-                    let possible_tangents = self
-                        .circles
-                        .iter()
-                        .flat_map(|c| generate_tangents(self.start.loc_radius(), c.loc_radius()))
-                        .collect_vec();
-                    let temp_c = Vec::from(self.circles);
-                    let valid_tangents = possible_tangents
-                        .iter()
-                        .filter_map(|(s, e)| {
-                            if line_of_sight_zones(s, e, &temp_c) {
-                                None
-                            } else {
-                                Some((s, e))
-                            }
-                        })
-                        .collect_vec();
-                    //Input all tangent pairs into the graph from start
-                    //Built and new empty entry to access later
-                    for tangent_pair in valid_tangents {
-                        let edg = Edge::generate_edge(self.start, *tangent_pair.1, f32::INFINITY);
-                        self.edges.entry(self.start).and_modify(|edges| edges.push(edg));
-                        self.edges.insert(*tangent_pair.1, Vec::<Edge>::new());
-                    }
-                    dbg!(&self.edges);
+            let truth = line_of_sight_zones(&self.start, &self.end, &self.circles);
 
-                } else {
-                    // we can go directly to end
-                    println!("Generate Edges for end");
-
-                    return vec![Edge::generate_edge(self.start, self.end, f32::INFINITY)];
+            //are any circles in our way
+            if truth {
+                println!("Build bitangents for all zones from start");
+                let possible_tangents = self
+                    .circles
+                    .iter()
+                    .flat_map(|c| generate_tangents(self.start.loc_radius(), c.loc_radius()))
+                    .collect_vec();
+                let temp_c = Vec::from(self.circles);
+                let valid_tangents = possible_tangents
+                    .iter()
+                    .filter_map(|(s, e)| {
+                        if line_of_sight_zones(s, e, &temp_c) {
+                            None
+                        } else {
+                            Some((s, e))
+                        }
+                    })
+                    .collect_vec();
+                //Input all tangent pairs into the graph from start
+                //Built and new empty entry to access later
+                for tangent_pair in valid_tangents {
+                    let edg = Edge::generate_edge(self.start, *tangent_pair.1, f32::INFINITY);
+                    self.edges
+                        .entry(self.start)
+                        .and_modify(|edges| edges.push(edg));
+                    self.edges.insert(*tangent_pair.1, Vec::<Edge>::new());
                 }
+                dbg!(&self.edges);
+            } else {
+                // we can go directly to end
+                println!("Generate Edges for end");
+
+                return vec![Edge::generate_edge(self.start, self.end, f32::INFINITY)];
             }
         }
         return self.edges.get(&node).unwrap().to_vec();
@@ -213,8 +212,6 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bo
     for zone in zones.iter() {
         let c = &zone.location.float_encode();
         let ac_difference = subtrac_pts(c, a);
-        let top_u = dot_product(&ac_difference, &ab_difference);
-        let temp_u = top_u/ab_dot;
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
         // Clamp u and find e the point that intersects ab and passes through c
@@ -331,8 +328,8 @@ fn generate_tangents(
     return tangents;
 }
 
-fn round_to(num: f32)-> f32{
-    return (num * 10000.0).round()/10000.0;
+fn round_to(num: f32) -> f32 {
+    return (num * 10000.0).round() / 10000.0;
 }
 
 #[cfg(test)]
