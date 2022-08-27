@@ -292,22 +292,24 @@ fn generate_tangents(
     //TODO: Figure out what comparison to use for start/end
 
     for sign1 in (-1..2).step_by(2) {
-        let c = (start_radius - sign1 as f32 * end_radius) / d;
+        let mut c = (start_radius - sign1 as f32 * end_radius) / d;
+        c = round_to(c);
         if c.powi(2) > 1.0 {
             continue;
         }
-        let h = (1.0 - c * c).sqrt().max(0.0);
+        let mut h = (1.0 - c * c).sqrt().max(0.0);
+        h = round_to(h);
         for sign2 in (-1..2).step_by(2) {
             let nx = center_norm[0] * c - sign2 as f32 * h as f32 * center_norm[1];
             let ny = center_norm[1] * c + sign2 as f32 * h as f32 * center_norm[0];
 
             let tangent_1_loc = [
-                start_loc[0] + start_radius * nx,
-                start_loc[1] + start_radius * ny,
+                round_to(start_loc[0] + start_radius * nx),
+                round_to(start_loc[1] + start_radius * ny),
             ];
             let tangent_2_loc = [
-                end_loc[0] - sign1 as f32 * end_radius * nx,
-                end_loc[1] - sign1 as f32 * end_radius * ny,
+                round_to(end_loc[0] - sign1 as f32 * end_radius * nx),
+                round_to(end_loc[1] - sign1 as f32 * end_radius * ny),
             ];
 
             let tan_node_start = Node::new(tangent_1_loc);
@@ -319,7 +321,9 @@ fn generate_tangents(
     return tangents;
 }
 
-fn tangent_points() {}
+fn round_to(num: f32)-> f32{
+    return (num * 10000.0).round()/10000.0;
+}
 
 fn neg_tangent_points() {}
 
