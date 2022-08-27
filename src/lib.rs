@@ -29,19 +29,20 @@ impl Graph {
     pub fn neighbors(mut self, node: Node) -> Vec<Edge> {
         //There are three cases
         //First Case: node is start. We need to check to see if we had to escape
+        //Second Case: we are at a zone. Find all bitangents from zone to others
         //
         if node == self.start {
+
             println!("We are start");
 
+            //Check if we escaped
             if self.edges.get(&node).unwrap().len() > 0 {
                 println!("we have stuff in start")
             } else {
-                let truth_vec = self
-                    .circles
-                    .iter()
-                    .map(|c| line_of_sight(&self.start, &self.end, c))
-                    .collect_vec();
-                if truth_vec.iter().any(|x| *x) {
+                let truth = line_of_sight_zones(&self.start, &self.end, &self.circles);
+                
+                //are any circles in our way
+                if truth {
                     println!("Build bitangents for all zones from start");
                     let possible_tangents = self
                         .circles
@@ -59,12 +60,17 @@ impl Graph {
                             }
                         })
                         .collect_vec();
-                    
+                    //Input all tangent pairs into the graph from start
+                    //Built and new empty entry to access later
                     for tangent_pair in valid_tangents {
                         let edg = Edge::generate_edge(self.start, *tangent_pair.1, f32::INFINITY);
                         self.edges.entry(self.start).and_modify(|edges| edges.push(edg));
+                        self.edges.insert(*tangent_pair.1, Vec::<Edge>::new());
                     }
+                    dbg!(&self.edges);
+
                 } else {
+                    // we can go directly to end
                     println!("Generate Edges for end");
 
                     return vec![Edge::generate_edge(self.start, self.end, f32::INFINITY)];
@@ -275,6 +281,7 @@ pub fn subtrac_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
     difference
 }
 ///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
+/// TODO: use Option as return
 fn generate_tangents(
     start_circle: (Vec<f32>, f32),
     end_circle: (Vec<f32>, f32),
@@ -317,6 +324,9 @@ fn generate_tangents(
 
             tangents.push((tan_node_start, tan_node_end));
         }
+        if start_radius == 0.0 {
+            return tangents;
+        }
     }
     return tangents;
 }
@@ -324,8 +334,6 @@ fn generate_tangents(
 fn round_to(num: f32)-> f32{
     return (num * 10000.0).round()/10000.0;
 }
-
-fn neg_tangent_points() {}
 
 #[cfg(test)]
 mod tests {
