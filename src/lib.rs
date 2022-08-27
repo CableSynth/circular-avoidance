@@ -386,7 +386,7 @@ mod tests {
         let circle_vec = vec![circle];
         let graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
-        assert_eq!(nodes.len(), 0);
+        assert_eq!(nodes.len(), 2);
         // print!("{:?}", graph)
     }
 
@@ -397,7 +397,7 @@ mod tests {
         let circle_vec = Vec::<Circle>::new();
         let graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
-        assert_eq!(nodes.len(), 0);
+        assert_eq!(nodes.len(), 1);
         // print!("{:?}", graph)
     }
 }
