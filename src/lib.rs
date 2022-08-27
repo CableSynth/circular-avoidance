@@ -291,13 +291,13 @@ fn generate_tangents(
     let center_norm = center_difference.iter().map(|val| val / d).collect_vec();
     //TODO: Figure out what comparison to use for start/end
 
-    for sign1 in (-1..1).step_by(2) {
+    for sign1 in (-1..2).step_by(2) {
         let c = (start_radius - sign1 as f32 * end_radius) / d;
         if c.powi(2) > 1.0 {
             continue;
         }
         let h = (1.0 - c * c).sqrt().max(0.0);
-        for sign2 in (-1..1).step_by(2) {
+        for sign2 in (-1..2).step_by(2) {
             let nx = center_norm[0] * c - sign2 as f32 * h as f32 * center_norm[1];
             let ny = center_norm[1] * c + sign2 as f32 * h as f32 * center_norm[0];
 
@@ -306,8 +306,8 @@ fn generate_tangents(
                 start_loc[1] + start_radius * ny,
             ];
             let tangent_2_loc = [
-                end_loc[0] + sign1 as f32 * end_radius * nx,
-                end_loc[1] + sign1 as f32 * end_radius * ny,
+                end_loc[0] - sign1 as f32 * end_radius * nx,
+                end_loc[1] - sign1 as f32 * end_radius * ny,
             ];
 
             let tan_node_start = Node::new(tangent_1_loc);
