@@ -30,9 +30,11 @@ impl Graph {
         //There are three cases
         //First Case: node is start. We need to check to see if we had to escape
         //Second Case: we are at a zone. Find all bitangents from zone to others
-        //
+        //3rd Case: traversal of nodes avaliable
+
+        //Always check for items at the node
         if self.edges.get(&node).unwrap().len() > 0 {
-            println!("we have stuff in start");
+            println!("we have items in the node");
             return self.edges.get(&node).unwrap().to_vec();
         } else if node == self.start {
             println!("We are start");
@@ -60,7 +62,7 @@ impl Graph {
                     })
                     .collect_vec();
                 //Input all tangent pairs into the graph from start
-                //Built and new empty entry to access later
+                //Build and add new empty entry to access later
                 for tangent_pair in valid_tangents {
                     let edg = Edge::generate_edge(self.start, *tangent_pair.1, f32::INFINITY);
                     self.edges
@@ -75,6 +77,8 @@ impl Graph {
 
                 return vec![Edge::generate_edge(self.start, self.end, f32::INFINITY)];
             }
+        } else {
+            
         }
         return self.edges.get(&node).unwrap().to_vec();
     }
