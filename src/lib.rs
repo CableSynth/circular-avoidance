@@ -78,7 +78,7 @@ impl Graph {
                 return vec![Edge::generate_edge(self.start, self.end, f32::INFINITY)];
             }
         } else {
-            
+            // need to get the circle that node lies on
         }
         return self.edges.get(&node).unwrap().to_vec();
     }
@@ -103,26 +103,28 @@ impl Circle {
 }
 
 impl LocationRadius for Circle {
-    fn loc_radius(&self) -> (Vec<f32>, f32) {
-        (self.location.float_encode(), self.radius)
+    fn loc_radius(&self) -> (Vec<f32>, f32, Option<Uuid>) {
+        (self.location.float_encode(), self.radius, Some(self.uuid))
     }
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Copy)]
 pub struct Node {
     location: Point,
+    circle: Uuid,
 }
 impl Node {
-    pub fn new(location: [f32; 2]) -> Self {
+    pub fn new(location: [f32; 2], id: Option<Uuid>) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
+            circle: id.unwrap_or_default(),
         }
     }
 }
 
 impl LocationRadius for Node {
-    fn loc_radius(&self) -> (Vec<f32>, f32) {
-        (self.location.float_encode(), 0.0)
+    fn loc_radius(&self) -> (Vec<f32>, f32, Option<Uuid>) {
+        (self.location.float_encode(), 0.0, None)
     }
 }
 
@@ -148,7 +150,7 @@ impl Point {
 }
 
 trait LocationRadius {
-    fn loc_radius(&self) -> (Vec<f32>, f32);
+    fn loc_radius(&self) -> (Vec<f32>, f32, Option<Uuid>);
 }
 
 #[derive(Debug, Clone)]
@@ -284,11 +286,11 @@ pub fn subtrac_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
 ///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
 /// TODO: use Option as return
 fn generate_tangents(
-    start_circle: (Vec<f32>, f32),
-    end_circle: (Vec<f32>, f32),
+    start_circle: (Vec<f32>, f32, Option<Uuid>),
+    end_circle: (Vec<f32>, f32, Option<Uuid>),
 ) -> Vec<(Node, Node)> {
-    let (start_loc, start_radius) = start_circle;
-    let (end_loc, end_radius) = end_circle;
+    let (start_loc, start_radius, start_uuid) = start_circle;
+    let (end_loc, end_radius, end_uuid) = end_circle;
     let d = distance(&end_loc, &start_loc);
     let mut tangents: Vec<(Node, Node)> = Vec::new();
     //Here we want to do vector math for the tangents as a whole
@@ -320,8 +322,8 @@ fn generate_tangents(
                 round_to(end_loc[1] - sign1 as f32 * end_radius * ny),
             ];
 
-            let tan_node_start = Node::new(tangent_1_loc);
-            let tan_node_end = Node::new(tangent_2_loc);
+            let tan_node_start = Node::new(tangent_1_loc, start_uuid);
+            let tan_node_end = Node::new(tangent_2_loc, end_uuid);
 
             tangents.push((tan_node_start, tan_node_end));
         }
@@ -363,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_line_of_sight() {
-        let n1 = Node::new([0.0, 0.0]);
+        let n1 = Node::new([0.0, 0.0], None);
     }
 
     #[test]
@@ -381,8 +383,8 @@ mod tests {
     }
     #[test]
     fn graph_build() {
-        let start = Node::new([0.0, 0.0]);
-        let end = Node::new([5.0, 5.0]);
+        let start = Node::new([0.0, 0.0], None);
+        let end = Node::new([5.0, 5.0], None);
         let circle = Circle::new([2.0, 2.0], 2.0);
         let circle_vec = vec![circle];
         let graph = Graph::build_graph(start, end, circle_vec);
@@ -393,8 +395,8 @@ mod tests {
 
     #[test]
     fn simple_graph_no_circle() {
-        let start = Node::new([0.0, 0.0]);
-        let end = Node::new([5.0, 5.0]);
+        let start = Node::new([0.0, 0.0], None);
+        let end = Node::new([5.0, 5.0], None);
         let circle_vec = Vec::<Circle>::new();
         let graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
