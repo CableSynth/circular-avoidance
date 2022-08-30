@@ -1,5 +1,5 @@
 use std::{borrow::BorrowMut, collections::HashMap};
-
+use priority_queue::PriorityQueue;
 use itertools::Itertools;
 use std::mem;
 use uuid::Uuid;
@@ -81,6 +81,14 @@ impl Graph {
             // need to get the circle that node lies on
         }
         return self.edges.get(&node).unwrap().to_vec();
+    }
+
+    pub fn a_star(self) {
+        let mut frontier: PriorityQueue<Node, f32> = PriorityQueue::new();
+        frontier.push(self.start, 0.0);
+        let mut came_from: HashMap<Node, Node> = HashMap::new();
+        let mut cost_so_far: HashMap<Node, f32> = HashMap::from([(self.start, 0.0)]);
+
     }
 }
 #[derive(Debug, Clone)]
