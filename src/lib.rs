@@ -3,8 +3,9 @@ use priority_queue::PriorityQueue;
 use itertools::Itertools;
 use std::mem;
 use uuid::Uuid;
+use core::cmp::Ordering;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, )]
 pub struct Graph {
     start: Node,
     end: Node,
@@ -26,7 +27,7 @@ impl Graph {
         }
     }
 
-    pub fn neighbors(mut self, node: Node) -> Vec<Edge> {
+    pub fn neighbors(mut self, node: Node) -> Option<Vec<Edge>> {
         //There are three cases
         //First Case: node is start. We need to check to see if we had to escape
         //Second Case: we are at a zone. Find all bitangents from zone to others
@@ -35,7 +36,7 @@ impl Graph {
         //Always check for items at the node
         if self.edges.get(&node).unwrap().len() > 0 {
             println!("we have items in the node");
-            return self.edges.get(&node).unwrap().to_vec();
+            return Some(self.edges.get(&node).unwrap().to_vec());
         } else if node == self.start {
             println!("We are start");
 
@@ -64,7 +65,7 @@ impl Graph {
                 //Input all tangent pairs into the graph from start
                 //Build and add new empty entry to access later
                 for tangent_pair in valid_tangents {
-                    let edg = Edge::generate_edge(self.start, *tangent_pair.1, f32::INFINITY);
+                    let edg = Edge::generate_edge(self.start, *tangent_pair.1, f64::INFINITY);
                     self.edges
                         .entry(self.start)
                         .and_modify(|edges| edges.push(edg));
@@ -75,19 +76,33 @@ impl Graph {
                 // we can go directly to end
                 println!("Generate Edges for end");
 
-                return vec![Edge::generate_edge(self.start, self.end, f32::INFINITY)];
+                return Some(vec![Edge::generate_edge(self.start, self.end, f64::INFINITY)]);
             }
         } else {
             // need to get the circle that node lies on
         }
-        return self.edges.get(&node).unwrap().to_vec();
+        return Some(self.edges.get(&node).unwrap().to_vec());
     }
 
-    pub fn a_star(self) {
-        let mut frontier: PriorityQueue<Node, f32> = PriorityQueue::new();
-        frontier.push(self.start, 0.0);
+    pub fn a_star(&self) {
+        let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
+        frontier.push(self.start, Number(0.0));
         let mut came_from: HashMap<Node, Node> = HashMap::new();
         let mut cost_so_far: HashMap<Node, f32> = HashMap::from([(self.start, 0.0)]);
+
+        while !frontier.is_empty() {
+            let (current, _ )= frontier.pop().expect("No poped off an empty q");
+
+            // if current == self.end {
+            //     println!("we have reached the end!");
+            //     return ;
+            // }
+
+            for edge in self.neighbors(current) {
+
+            }
+
+        }
 
     }
 }
@@ -95,12 +110,12 @@ impl Graph {
 pub struct Circle {
     location: Point,
     uuid: Uuid,
-    radius: f32,
+    radius: f64,
     nodes: Vec<Node>,
 }
 
 impl Circle {
-    pub fn new(location: [f32; 2], radius: f32) -> Self {
+    pub fn new(location: [f64; 2], radius: f64) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
             uuid: Uuid::new_v4(),
@@ -111,7 +126,7 @@ impl Circle {
 }
 
 impl LocationRadius for Circle {
-    fn loc_radius(&self) -> (Vec<f32>, f32, Option<Uuid>) {
+    fn loc_radius(&self) -> (Vec<f64>, f64, Option<Uuid>) {
         (self.location.float_encode(), self.radius, Some(self.uuid))
     }
 }
@@ -122,7 +137,7 @@ pub struct Node {
     circle: Uuid,
 }
 impl Node {
-    pub fn new(location: [f32; 2], id: Option<Uuid>) -> Self {
+    pub fn new(location: [f64; 2], id: Option<Uuid>) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
             circle: id.unwrap_or_default(),
@@ -131,7 +146,7 @@ impl Node {
 }
 
 impl LocationRadius for Node {
-    fn loc_radius(&self) -> (Vec<f32>, f32, Option<Uuid>) {
+    fn loc_radius(&self) -> (Vec<f64>, f64, Option<Uuid>) {
         (self.location.float_encode(), 0.0, None)
     }
 }
@@ -143,34 +158,34 @@ pub struct Point {
 }
 
 impl Point {
-    fn new(x: f32, y: f32) -> Point {
+    fn new(x: f64, y: f64) -> Point {
         Point {
             x: integer_decode(x),
             y: integer_decode(y),
         }
     }
-    fn float_encode(self) -> Vec<f32> {
+    fn float_encode(self) -> Vec<f64> {
         vec![
-            ((self.x.0 as f32) * (self.x.1 as f32).exp2() * self.x.2 as f32),
-            ((self.y.0 as f32) * (self.y.1 as f32).exp2() * self.y.2 as f32),
+            ((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64),
+            ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64),
         ]
     }
 }
 
 trait LocationRadius {
-    fn loc_radius(&self) -> (Vec<f32>, f32, Option<Uuid>);
+    fn loc_radius(&self) -> (Vec<f64>, f64, Option<Uuid>);
 }
 
 #[derive(Debug, Clone)]
 pub struct Edge {
     node: Node,
-    weight: f32,
-    theta: f32,
-    direction: Vec<f32>,
+    weight: f64,
+    theta: f64,
+    direction: Vec<f64>,
 }
 
 impl Edge {
-    fn new(node: Node, weight: f32, theta: f32, direction: Vec<f32>) -> Self {
+    fn new(node: Node, weight: f64, theta: f64, direction: Vec<f64>) -> Self {
         Self {
             node,
             weight,
@@ -178,7 +193,7 @@ impl Edge {
             direction,
         }
     }
-    fn generate_edge(start: Node, end: Node, theta: f32) -> Edge {
+    fn generate_edge(start: Node, end: Node, theta: f64) -> Edge {
         let start_loc = &start.location.float_encode();
         let end_loc = &end.location.float_encode();
         let distance = distance(&start_loc, &end_loc);
@@ -188,8 +203,23 @@ impl Edge {
     }
 }
 
+#[derive(PartialEq, PartialOrd)]
+pub struct Number(f64);
+
+impl Eq for Number {}
+
+impl Ord for Number{
+    fn cmp(&self, other: &Self) -> Ordering {
+	if let Some(ordering) = self.partial_cmp(other) {
+	    ordering
+	} else {
+	    // Choose what to do with NaNs, for example:
+	    Ordering::Less
+	}
+    }
+}
 //Pulled from old Rust std
-fn integer_decode(val: f32) -> (u64, i16, i8) {
+fn integer_decode(val: f64) -> (u64, i16, i8) {
     let bits: u64 = unsafe { mem::transmute(val as f64) };
     let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
     let mut exponent: i16 = ((bits >> 52) & 0x7ff) as i16;
@@ -229,7 +259,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bo
         let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
         // Clamp u and find e the point that intersects ab and passes through c
-        let clamp_product: Vec<f32> = ab_difference
+        let clamp_product: Vec<f64> = ab_difference
             .iter()
             .map(|value| value * u.clamp(0.0, 1.0))
             .collect();
@@ -255,7 +285,7 @@ pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
     let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
 
     // Clamp u and find e the point that intersects ab and passes through c
-    let clamp_product: Vec<f32> = ab_difference
+    let clamp_product: Vec<f64> = ab_difference
         .iter()
         .map(|value| value * u.clamp(0.0, 1.0))
         .collect();
@@ -268,13 +298,13 @@ pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
 
     false
 }
-pub fn dot_product(p1: &[f32], p2: &[f32]) -> f32 {
-    let dot: f32 = p1.iter().zip(p2.iter()).map(|(a, b)| a * b).sum();
+pub fn dot_product(p1: &[f64], p2: &[f64]) -> f64 {
+    let dot: f64 = p1.iter().zip(p2.iter()).map(|(a, b)| a * b).sum();
     dot
 }
 
-pub fn distance(p1: &[f32], p2: &[f32]) -> f32 {
-    let square_sum: f32 = p1
+pub fn distance(p1: &[f64], p2: &[f64]) -> f64 {
+    let square_sum: f64 = p1
         .iter()
         .zip(p2.iter())
         .map(|(x1, x2)| (x2 - x1).powi(2))
@@ -282,20 +312,20 @@ pub fn distance(p1: &[f32], p2: &[f32]) -> f32 {
     square_sum.sqrt()
 }
 
-pub fn add_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
-    let point_sum: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 + x2).collect();
+pub fn add_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
+    let point_sum: Vec<f64> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 + x2).collect();
     point_sum
 }
 
-pub fn subtrac_pts(p1: &[f32], p2: &[f32]) -> Vec<f32> {
-    let difference: Vec<f32> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
+pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
+    let difference: Vec<f64> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
     difference
 }
 ///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
 /// TODO: use Option as return
 fn generate_tangents(
-    start_circle: (Vec<f32>, f32, Option<Uuid>),
-    end_circle: (Vec<f32>, f32, Option<Uuid>),
+    start_circle: (Vec<f64>, f64, Option<Uuid>),
+    end_circle: (Vec<f64>, f64, Option<Uuid>),
 ) -> Vec<(Node, Node)> {
     let (start_loc, start_radius, start_uuid) = start_circle;
     let (end_loc, end_radius, end_uuid) = end_circle;
@@ -310,7 +340,7 @@ fn generate_tangents(
     //TODO: Figure out what comparison to use for start/end
 
     for sign1 in (-1..2).step_by(2) {
-        let mut c = (start_radius - sign1 as f32 * end_radius) / d;
+        let mut c = (start_radius - sign1 as f64 * end_radius) / d;
         c = round_to(c);
         if c.powi(2) > 1.0 {
             continue;
@@ -318,16 +348,16 @@ fn generate_tangents(
         let mut h = (1.0 - c * c).sqrt().max(0.0);
         h = round_to(h);
         for sign2 in (-1..2).step_by(2) {
-            let nx = center_norm[0] * c - sign2 as f32 * h as f32 * center_norm[1];
-            let ny = center_norm[1] * c + sign2 as f32 * h as f32 * center_norm[0];
+            let nx = center_norm[0] * c - sign2 as f64 * h as f64 * center_norm[1];
+            let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
 
             let tangent_1_loc = [
                 round_to(start_loc[0] + start_radius * nx),
                 round_to(start_loc[1] + start_radius * ny),
             ];
             let tangent_2_loc = [
-                round_to(end_loc[0] - sign1 as f32 * end_radius * nx),
-                round_to(end_loc[1] - sign1 as f32 * end_radius * ny),
+                round_to(end_loc[0] - sign1 as f64 * end_radius * nx),
+                round_to(end_loc[1] - sign1 as f64 * end_radius * ny),
             ];
 
             let tan_node_start = Node::new(tangent_1_loc, start_uuid);
@@ -342,7 +372,7 @@ fn generate_tangents(
     return tangents;
 }
 
-fn round_to(num: f32) -> f32 {
+fn round_to(num: f64) -> f64 {
     return (num * 10000.0).round() / 10000.0;
 }
 
@@ -379,7 +409,7 @@ mod tests {
     #[test]
     fn test_3d_distance() {
         let d = distance(&vec![0.0, 0.0, 0.0], &vec![1.0, 1.0, 1.0]);
-        assert_eq!(d, 3_f32.sqrt())
+        assert_eq!(d, 3_f64.sqrt())
     }
 
     #[test]
