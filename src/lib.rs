@@ -88,7 +88,7 @@ impl Graph {
         return Some(self.edges.get(&node).unwrap().to_vec());
     }
 
-    pub fn a_star(self) {
+    pub fn a_star(self) -> (HashMap<Node, Node>, HashMap<Node, f64>){
         let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
         frontier.push(self.start, Number(0.0));
         let mut came_from: HashMap<Node, Node> = HashMap::new();
@@ -99,13 +99,22 @@ impl Graph {
 
             if current == self.end {
                 println!("we have reached the end!");
-                return;
+                break;
             }
 
             for edge in self.to_owned().neighbors(current).unwrap() {
                 let new_cost = cost_so_far.get(&current).expect("node not in cost") + edge.weight;
+
+                if !cost_so_far.contains_key(&edge.node) || &new_cost < cost_so_far.get(&edge.node).unwrap() {
+                    cost_so_far.insert(edge.node, new_cost);
+                    let prio = new_cost + distance(&edge.node.location.float_encode(), &self.end.location.float_encode());
+                    frontier.push(edge.node, Number(prio));
+                    came_from.insert(edge.node, current);
+                }
             }
         }
+
+        return (came_from, cost_so_far);
     }
 }
 #[derive(Debug, Clone)]
