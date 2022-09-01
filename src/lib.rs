@@ -1,11 +1,11 @@
-use std::{borrow::BorrowMut, collections::HashMap};
-use priority_queue::PriorityQueue;
-use itertools::Itertools;
-use std::mem;
-use uuid::Uuid;
 use core::cmp::Ordering;
+use itertools::Itertools;
+use priority_queue::PriorityQueue;
+use std::mem;
+use std::{borrow::BorrowMut, collections::HashMap};
+use uuid::Uuid;
 
-#[derive(Debug, Clone, )]
+#[derive(Debug, Clone)]
 pub struct Graph {
     start: Node,
     end: Node,
@@ -76,7 +76,11 @@ impl Graph {
                 // we can go directly to end
                 println!("Generate Edges for end");
 
-                return Some(vec![Edge::generate_edge(self.start, self.end, f64::INFINITY)]);
+                return Some(vec![Edge::generate_edge(
+                    self.start,
+                    self.end,
+                    f64::INFINITY,
+                )]);
             }
         } else {
             // need to get the circle that node lies on
@@ -84,26 +88,24 @@ impl Graph {
         return Some(self.edges.get(&node).unwrap().to_vec());
     }
 
-    pub fn a_star(&self) {
+    pub fn a_star(self) {
         let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
         frontier.push(self.start, Number(0.0));
         let mut came_from: HashMap<Node, Node> = HashMap::new();
-        let mut cost_so_far: HashMap<Node, f32> = HashMap::from([(self.start, 0.0)]);
+        let mut cost_so_far: HashMap<Node, f64> = HashMap::from([(self.start, 0.0)]);
 
         while !frontier.is_empty() {
-            let (current, _ )= frontier.pop().expect("No poped off an empty q");
+            let (current, _) = frontier.pop().expect("No poped off an empty q");
 
-            // if current == self.end {
-            //     println!("we have reached the end!");
-            //     return ;
-            // }
-
-            for edge in self.neighbors(current) {
-
+            if current == self.end {
+                println!("we have reached the end!");
+                return;
             }
 
+            for edge in self.to_owned().neighbors(current).unwrap() {
+                let new_cost = cost_so_far.get(&current).expect("node not in cost") + edge.weight;
+            }
         }
-
     }
 }
 #[derive(Debug, Clone)]
@@ -208,14 +210,14 @@ pub struct Number(f64);
 
 impl Eq for Number {}
 
-impl Ord for Number{
+impl Ord for Number {
     fn cmp(&self, other: &Self) -> Ordering {
-	if let Some(ordering) = self.partial_cmp(other) {
-	    ordering
-	} else {
-	    // Choose what to do with NaNs, for example:
-	    Ordering::Less
-	}
+        if let Some(ordering) = self.partial_cmp(other) {
+            ordering
+        } else {
+            // Choose what to do with NaNs, for example:
+            Ordering::Less
+        }
     }
 }
 //Pulled from old Rust std
