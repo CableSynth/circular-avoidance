@@ -1,4 +1,5 @@
 use core::cmp::Ordering;
+use core::fmt;
 use itertools::Itertools;
 use priority_queue::PriorityQueue;
 use std::mem;
@@ -116,6 +117,17 @@ impl Graph {
 
         return (came_from, cost_so_far);
     }
+    pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
+        let mut current = end.clone();
+        let mut path: Vec<Node> = Vec::new();
+        while !current.eq(&start) {
+            path.push(current);
+            current = *came_from.get(&current).expect("No path avaliable");
+        }
+        path.push(start);
+        path.reverse();
+        return path;
+    }
 }
 #[derive(Debug, Clone)]
 pub struct Circle {
@@ -153,6 +165,13 @@ impl Node {
             location: Point::new(location[0], location[1]),
             circle: id.unwrap_or_default(),
         }
+    }
+}
+
+impl fmt::Display for Node {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let loc_print = self.location.float_encode();
+        write!(f, "location: {:?}, circle {:?}", loc_print, self.circle)
     }
 }
 
@@ -352,23 +371,23 @@ fn generate_tangents(
 
     for sign1 in (-1..2).step_by(2) {
         let mut c = (start_radius - sign1 as f64 * end_radius) / d;
-        c = round_to(c);
+        c = round_to(c, 5);
         if c.powi(2) > 1.0 {
             continue;
         }
         let mut h = (1.0 - c * c).sqrt().max(0.0);
-        h = round_to(h);
+        h = round_to(h, 5);
         for sign2 in (-1..2).step_by(2) {
             let nx = center_norm[0] * c - sign2 as f64 * h as f64 * center_norm[1];
             let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
 
             let tangent_1_loc = [
-                round_to(start_loc[0] + start_radius * nx),
-                round_to(start_loc[1] + start_radius * ny),
+                round_to(start_loc[0] + start_radius * nx, 5),
+                round_to(start_loc[1] + start_radius * ny, 5),
             ];
             let tangent_2_loc = [
-                round_to(end_loc[0] - sign1 as f64 * end_radius * nx),
-                round_to(end_loc[1] - sign1 as f64 * end_radius * ny),
+                round_to(end_loc[0] - sign1 as f64 * end_radius * nx, 5),
+                round_to(end_loc[1] - sign1 as f64 * end_radius * ny, 5),
             ];
 
             let tan_node_start = Node::new(tangent_1_loc, start_uuid);
@@ -383,8 +402,9 @@ fn generate_tangents(
     return tangents;
 }
 
-fn round_to(num: f64) -> f64 {
-    return (num * 10000.0).round() / 10000.0;
+fn round_to(num: f64, places: i32) -> f64 {
+    let p = 10.0_f64.powi(places);
+    return (num * p).round() / p;
 }
 
 #[cfg(test)]
@@ -401,11 +421,6 @@ mod tests {
         assert_eq!(pt.float_encode()[1], float_pt_2);
     }
 
-    #[test]
-    fn test_add_pt() {
-        let sum = add_pts(&vec![0.0, 2.0], &vec![0.0, 3.0]);
-        assert_eq!(sum, vec![0.0, 5.0])
-    }
     #[test]
     fn test_distance() {
         let d = distance(&vec![0.0, 0.0], &vec![0.0, 1.0]);
