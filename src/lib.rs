@@ -89,7 +89,7 @@ impl Graph {
         return Some(self.edges.get(&node).unwrap().to_vec());
     }
 
-    pub fn a_star(self) -> (HashMap<Node, Node>, HashMap<Node, f64>){
+    pub fn a_star(self) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
         let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
         frontier.push(self.start, Number(0.0));
         let mut came_from: HashMap<Node, Node> = HashMap::new();
@@ -106,9 +106,15 @@ impl Graph {
             for edge in self.to_owned().neighbors(current).unwrap() {
                 let new_cost = cost_so_far.get(&current).expect("node not in cost") + edge.weight;
 
-                if !cost_so_far.contains_key(&edge.node) || &new_cost < cost_so_far.get(&edge.node).unwrap() {
+                if !cost_so_far.contains_key(&edge.node)
+                    || &new_cost < cost_so_far.get(&edge.node).unwrap()
+                {
                     cost_so_far.insert(edge.node, new_cost);
-                    let prio = new_cost + distance(&edge.node.location.float_encode(), &self.end.location.float_encode());
+                    let prio = new_cost
+                        + distance(
+                            &edge.node.location.float_encode(),
+                            &self.end.location.float_encode(),
+                        );
                     frontier.push(edge.node, Number(prio));
                     came_from.insert(edge.node, current);
                 }
@@ -117,17 +123,17 @@ impl Graph {
 
         return (came_from, cost_so_far);
     }
-    pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
-        let mut current = end.clone();
-        let mut path: Vec<Node> = Vec::new();
-        while !current.eq(&start) {
-            path.push(current);
-            current = *came_from.get(&current).expect("No path avaliable");
-        }
-        path.push(start);
-        path.reverse();
-        return path;
+}
+pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
+    let mut current = end.clone();
+    let mut path: Vec<Node> = Vec::new();
+    while !current.eq(&start) {
+        path.push(current);
+        current = *came_from.get(&current).expect("No path avaliable");
     }
+    path.push(start);
+    path.reverse();
+    return path;
 }
 #[derive(Debug, Clone)]
 pub struct Circle {
@@ -465,6 +471,18 @@ mod tests {
         let graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
         assert_eq!(nodes.unwrap().len(), 1);
+        // print!("{:?}", graph)
+    }
+
+    #[test]
+    fn simple_graph_no_circle_path() {
+        let start = Node::new([0.0, 0.0], None);
+        let end = Node::new([5.0, 5.0], None);
+        let circle_vec = Vec::<Circle>::new();
+        let graph = Graph::build_graph(start, end, circle_vec);
+        let (came_from, cost) = graph.a_star();
+        let path = reconstruct_path(came_from, start, end);
+        println!("{:?}", path);
         // print!("{:?}", graph)
     }
 }
