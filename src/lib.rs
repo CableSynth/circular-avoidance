@@ -482,7 +482,9 @@ mod tests {
         let graph = Graph::build_graph(start, end, circle_vec);
         let (came_from, cost) = graph.a_star();
         let path = reconstruct_path(came_from, start, end);
-        println!("{:?}", path);
+        for p in path {
+            println!("{}", p);
+        }
         // print!("{:?}", graph)
     }
 }
