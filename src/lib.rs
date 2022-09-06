@@ -10,16 +10,17 @@ use uuid::Uuid;
 pub struct Graph {
     start: Node,
     end: Node,
-    circles: Vec<Circle>,
+    circles: HashMap<Uuid, Circle>,
     // Edge: EndNode, weight, theta, direction
     edges: HashMap<Node, Vec<Edge>>,
 }
 
 impl Graph {
     pub fn build_graph(start: Node, end: Node, zones: Vec<Circle>) -> Graph {
-        Graph::new(start, end, zones)
+        let zones_map: HashMap<Uuid, Circle> = zones.iter().cloned().map(|c| (c.uuid, c)).collect();
+        Graph::new(start, end, zones_map)
     }
-    fn new(start: Node, end: Node, circles: Vec<Circle>) -> Self {
+    fn new(start: Node, end: Node, circles: HashMap<Uuid, Circle>) -> Self {
         Self {
             start,
             end,
@@ -42,7 +43,11 @@ impl Graph {
             println!("We are start");
 
             //Check if we escaped
-            let truth = line_of_sight_zones(&self.start, &self.end, &self.circles);
+            let truth = line_of_sight_zones(
+                &self.start,
+                &self.end,
+                &self.circles.values().cloned().collect_vec(),
+            );
 
             //are any circles in our way
             if truth {
@@ -50,9 +55,9 @@ impl Graph {
                 let possible_tangents = self
                     .circles
                     .iter()
-                    .flat_map(|c| generate_tangents(self.start.loc_radius(), c.loc_radius()))
+                    .flat_map(|c| generate_tangents(self.start.loc_radius(), c.1.loc_radius()))
                     .collect_vec();
-                let temp_c = Vec::from(self.circles);
+                let temp_c = self.circles.values().cloned().collect_vec();
                 let valid_tangents = possible_tangents
                     .iter()
                     .filter_map(|(s, e)| {
@@ -85,6 +90,37 @@ impl Graph {
             }
         } else {
             // need to get the circle that node lies on
+            let circle_id = node.circle;
+            let circle_of_node = self.circles.get(&circle_id).expect("Circle not valid?");
+
+            //Find the valid circles (i.e all the ones except the one we are on)
+            let valid_circles: Vec<Circle> = self
+                .circles
+                .iter()
+                .filter_map(|x| {
+                    if *x.0 != circle_id {
+                        Some(x.1.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            let possible_tangents = valid_circles
+                .iter()
+                .flat_map(|c| generate_tangents(circle_of_node.loc_radius(), c.loc_radius()))
+                .collect_vec();
+
+            let valid_tangents = possible_tangents
+                .iter()
+                .filter_map(|(s, e)| {
+                    if line_of_sight_zones(s, e, &valid_circles) {
+                        Some((s, e))
+                    } else {
+                        None
+                    }
+                })
+                .collect_vec();
         }
         return Some(self.edges.get(&node).unwrap().to_vec());
     }
@@ -455,11 +491,10 @@ mod tests {
     fn graph_build() {
         let start = Node::new([0.0, 0.0], None);
         let end = Node::new([5.0, 5.0], None);
-        let circle = Circle::new([2.0, 2.0], 2.0);
-        let circle_vec = vec![circle];
-        let graph = Graph::build_graph(start, end, circle_vec);
-        let nodes = graph.neighbors(start);
-        assert_eq!(nodes.unwrap().len(), 2);
+        let circle = vec![Circle::new([2.0, 2.0], 2.0), Circle::new([7.0, 7.0], 1.0)];
+        let graph = Graph::build_graph(start, end, circle);
+        let (came_from, cost) = graph.a_star();
+        // assert_eq!(nodes.unwrap().len(), 2);
         // print!("{:?}", graph)
     }
 
@@ -482,7 +517,7 @@ mod tests {
         let graph = Graph::build_graph(start, end, circle_vec);
         let (came_from, cost) = graph.a_star();
         let path = reconstruct_path(came_from, start, end);
-        println!("{:?}", path);
+        assert_eq!(path.len(), 2)
         // print!("{:?}", graph)
     }
 }
