@@ -58,24 +58,16 @@ impl Graph {
                     .flat_map(|c| generate_tangents(self.start.loc_radius(), c.1.loc_radius()))
                     .collect_vec();
                 let temp_c = self.circles.values().cloned().collect_vec();
-                let valid_tangents = possible_tangents
-                    .iter()
-                    .filter_map(|(s, e)| {
-                        if line_of_sight_zones(s, e, &temp_c) {
-                            None
-                        } else {
-                            Some((s, e))
-                        }
-                    })
-                    .collect_vec();
+
+                let valid_tangents = tangent_prep(temp_c, &self.start.loc_radius());
                 //Input all tangent pairs into the graph from start
                 //Build and add new empty entry to access later
                 for tangent_pair in valid_tangents {
-                    let edg = Edge::generate_edge(self.start, *tangent_pair.1, f64::INFINITY);
+                    let edg = Edge::generate_edge(self.start, tangent_pair.1, f64::INFINITY);
                     self.edges
                         .entry(self.start)
                         .and_modify(|edges| edges.push(edg));
-                    self.edges.insert(*tangent_pair.1, Vec::<Edge>::new());
+                    self.edges.insert(tangent_pair.1, Vec::<Edge>::new());
                 }
                 dbg!(&self.edges);
             } else {
@@ -106,21 +98,11 @@ impl Graph {
                 })
                 .collect();
 
-            let possible_tangents = valid_circles
-                .iter()
-                .flat_map(|c| generate_tangents(circle_of_node.loc_radius(), c.loc_radius()))
-                .collect_vec();
+            let valid_tangents = tangent_prep(valid_circles, &circle_of_node.loc_radius());
 
-            let valid_tangents = possible_tangents
-                .iter()
-                .filter_map(|(s, e)| {
-                    if line_of_sight_zones(s, e, &valid_circles) {
-                        Some((s, e))
-                    } else {
-                        None
-                    }
-                })
-                .collect_vec();
+            for tan_pair in valid_tangents {
+                let edg = 1;
+            }
         }
         return Some(self.edges.get(&node).unwrap().to_vec());
     }
@@ -393,6 +375,30 @@ pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
     let difference: Vec<f64> = p1.iter().zip(p2.iter()).map(|(x1, x2)| x1 - x2).collect();
     difference
 }
+
+//TODO CHANGE NAME
+fn tangent_prep(
+    zones: Vec<Circle>,
+    loc_radius_oi: &(Vec<f64>, f64, Option<Uuid>),
+) -> Vec<(Node, Node)> {
+    let possible_tangents = zones
+        .iter()
+        .flat_map(|c| generate_tangents(*loc_radius_oi, c.loc_radius()))
+        .collect_vec();
+
+    let valid_tangents = possible_tangents
+        .iter()
+        .filter_map(|(s, e)| {
+            if line_of_sight_zones(s, e, &zones) {
+                None
+            } else {
+                Some((*s, *e))
+            }
+        })
+        .collect_vec();
+    return valid_tangents;
+}
+
 ///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
 /// TODO: use Option as return
 fn generate_tangents(
