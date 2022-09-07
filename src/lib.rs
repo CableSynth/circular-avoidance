@@ -52,13 +52,9 @@ impl Graph {
             //are any circles in our way
             if truth {
                 println!("Build bitangents for all zones from start");
-                let possible_tangents = self
-                    .circles
-                    .iter()
-                    .flat_map(|c| generate_tangents(self.start.loc_radius(), c.1.loc_radius()))
-                    .collect_vec();
+                
                 let temp_c = self.circles.values().cloned().collect_vec();
-
+                
                 let valid_tangents = tangent_prep(temp_c, &self.start.loc_radius());
                 //Input all tangent pairs into the graph from start
                 //Build and add new empty entry to access later
@@ -377,10 +373,7 @@ pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
 }
 
 //TODO CHANGE NAME
-fn tangent_prep(
-    zones: Vec<Circle>,
-    loc_radius_oi: &(Vec<f64>, f64, Option<Uuid>),
-) -> Vec<(Node, Node)> {
+fn tangent_prep(zones: Vec<Circle>, loc_radius_oi: &(Vec<f64>, f64, Option<Uuid>)) -> Vec<(Node, Node)> {
     let possible_tangents = zones
         .iter()
         .flat_map(|c| generate_tangents(*loc_radius_oi, c.loc_radius()))
