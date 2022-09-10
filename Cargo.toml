@@ -16,8 +16,8 @@ path = "src/bin.rs"
 itertools = "0.10.3"
 priority-queue = "1.2.3"
 plotters= "0.3.3"
-serde-pickle = "1.1.1"
-serde = "1.0.144"
+serde_json = "1.0.85"
+serde = { version = "1.0", features = ["derive"] }
 [dependencies.uuid]
 version = "1.1.2"
 features = [
