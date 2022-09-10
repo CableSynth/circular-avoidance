@@ -1,6 +1,8 @@
 use core::cmp::Ordering;
 use core::fmt;
 use itertools::Itertools;
+use plotters::element::PointCollection;
+use plotters::prelude::*;
 use priority_queue::PriorityQueue;
 use std::{borrow::BorrowMut, collections::HashMap};
 use std::{mem, vec};
@@ -10,17 +12,17 @@ use uuid::Uuid;
 pub struct Graph {
     start: Node,
     end: Node,
-    circles: HashMap<Uuid, Circle>,
+    circles: HashMap<Uuid, Zone>,
     // Edge: EndNode, weight, theta, direction
     edges: HashMap<Node, Vec<Edge>>,
 }
 
 impl Graph {
-    pub fn build_graph(start: Node, end: Node, zones: Vec<Circle>) -> Graph {
-        let zones_map: HashMap<Uuid, Circle> = zones.iter().cloned().map(|c| (c.uuid, c)).collect();
+    pub fn build_graph(start: Node, end: Node, zones: Vec<Zone>) -> Graph {
+        let zones_map: HashMap<Uuid, Zone> = zones.iter().cloned().map(|c| (c.uuid, c)).collect();
         Graph::new(start, end, zones_map)
     }
-    fn new(start: Node, end: Node, circles: HashMap<Uuid, Circle>) -> Self {
+    fn new(start: Node, end: Node, circles: HashMap<Uuid, Zone>) -> Self {
         Self {
             start,
             end,
@@ -55,7 +57,7 @@ impl Graph {
 
                 let temp_c = self.circles.values().cloned().collect_vec();
 
-                let valid_tangents = tangent_prep(temp_c, &self.start.loc_radius());
+                let valid_tangents = tangent_prep(temp_c, self.start.loc_radius());
                 //Input all tangent pairs into the graph from start
                 //Build and add new empty entry to access later
                 for tangent_pair in valid_tangents {
@@ -79,10 +81,10 @@ impl Graph {
         } else {
             // need to get the circle that node lies on
             let circle_id = node.circle;
-            let circle_of_node = self.circles.get(&circle_id).expect("Circle not valid?");
+            let circle_of_node = self.circles.get(&circle_id).expect("Zone not valid?");
 
             //Find the valid circles (i.e all the ones except the one we are on)
-            let valid_circles: Vec<Circle> = self
+            let valid_circles: Vec<Zone> = self
                 .circles
                 .iter()
                 .filter_map(|x| {
@@ -94,11 +96,13 @@ impl Graph {
                 })
                 .collect();
 
-            let valid_tangents = tangent_prep(valid_circles, &circle_of_node.loc_radius());
+            let valid_tangents = tangent_prep(valid_circles, circle_of_node.loc_radius());
 
             // We build out the surfing edges from the circles
+            let circle_of_node = self.circles.get_mut(&circle_id).expect("not in");
             for tangent_pair in valid_tangents {
                 let edg = Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY);
+                circle_of_node.nodes.push(tangent_pair.0);
                 let mut vec_for_edge: Vec<Edge> = Vec::new();
                 vec_for_edge.push(edg);
                 self.edges.insert(tangent_pair.0, vec_for_edge);
@@ -107,12 +111,11 @@ impl Graph {
             todo!("Build the surfing end")
 
             //Next Build Huggin edges
-
         }
         return Some(self.edges.get(&node).unwrap().to_vec());
     }
 
-    pub fn a_star(self) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
+    pub fn a_star(&self) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
         let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
         frontier.push(self.start, Number(0.0));
         let mut came_from: HashMap<Node, Node> = HashMap::new();
@@ -146,6 +149,60 @@ impl Graph {
 
         return (came_from, cost_so_far);
     }
+    fn generate_hugging(self, node: Node, zone: Zone, zone_vec: Vec<Zone>) {
+        let radius_sqr = (zone.radius.powi(2)) * 2.0;
+        let tangent_nodes = zone.nodes.clone();
+        let node_combinations =
+            tangent_nodes.iter().map(|&p| (node, p)).collect_vec();
+        let intesect_zones = self.hugging_edge_zone_reduction(zone_vec, zone);
+        // let valid_nodes;
+        // let ;
+    }
+    fn hugging_edge_zone_reduction(self, zones: Vec<Zone>, focus: Zone) -> Vec<(Point, Point)> {
+        let (focus_loc, focus_radius, _) = focus.loc_radius();
+        let zones_to_return = zones
+            .iter()
+            .cloned()
+            .filter_map(|z| {
+                let (target_loc, target_radius, _) = z.loc_radius();
+                let dist = distance(&target_loc, &focus_loc);
+                let radius_sum = target_radius + focus_radius;
+                let abs_radius_diff = (target_radius - focus_radius).abs();
+                if dist > radius_sum
+                    || dist < abs_radius_diff
+                    || dist == radius_sum
+                    || ((dist == 0.0) && (abs_radius_diff == 0.0))
+                {
+                    None
+                } else {
+                    let distance_a_c = (focus_radius.powi(2) - target_radius.powi(2)
+                        + dist.powi(2))
+                        / (2.0 * dist);
+                    let h = focus_radius.powi(2) - distance_a_c.powi(2);
+                    let temp_diff = subtrac_pts(&target_loc, &focus_loc);
+                    let distance_div = distance_a_c / dist;
+                    let center_mult = temp_diff.iter().map(|i| i * distance_div).collect_vec();
+                    let intermediate = add_pts(&center_mult, &focus_loc);
+
+                    let point_a_x = intermediate[0] + h * temp_diff[1] / dist;
+                    let point_a_y = intermediate[1] - h * temp_diff[0] / dist;
+                    let point_b_x = intermediate[0] - h * temp_diff[1] / dist;
+                    let point_b_y = intermediate[1] + h * temp_diff[0] / dist;
+
+                    Some((
+                        Point::new(point_a_x, point_a_y),
+                        Point::new(point_b_x, point_b_y),
+                    ))
+                }
+            })
+            .collect_vec();
+        return zones_to_return;
+    }
+
+    ///Return the valide bitangents that create a hugging edge
+    fn cull_hugging(self, node_combs: Vec<(Node, Node)>, intersect: Vec<(Point, Point)>, zone_loc: Point) {
+        let valid = node_combs.iter().filter_map(|(s, e)| Some(e)).collect_vec();
+    }
 }
 pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
     let mut current = end.clone();
@@ -159,14 +216,15 @@ pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) 
     return path;
 }
 #[derive(Debug, Clone)]
-pub struct Circle {
+pub struct Zone {
     location: Point,
     uuid: Uuid,
     radius: f64,
+    //Thinking of reworking this to store in a different way
     nodes: Vec<Node>,
 }
 
-impl Circle {
+impl Zone {
     pub fn new(location: [f64; 2], radius: f64) -> Self {
         Self {
             location: Point::new(location[0], location[1]),
@@ -177,7 +235,7 @@ impl Circle {
     }
 }
 
-impl LocationRadius for Circle {
+impl LocationRadius for Zone {
     fn loc_radius(&self) -> (Vec<f64>, f64, Option<Uuid>) {
         (self.location.float_encode(), self.radius, Some(self.uuid))
     }
@@ -228,6 +286,12 @@ impl Point {
             ((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64),
             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64),
         ]
+    }
+    fn encode_as_tuple(self) -> (f32, f32) {
+        (
+            ((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64) as f32,
+            ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64) as f32,
+        )
     }
 }
 
@@ -306,7 +370,7 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
 /// let result = line_of_sight(node_1, node_2, zones);
 /// assert_eq!(result, );
 /// ```
-pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bool {
+pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool {
     // Calculate u
     let a = &node_1.location.float_encode();
     let b = &node_2.location.float_encode();
@@ -333,7 +397,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Circle]) -> bo
     false
 }
 
-pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Circle) -> bool {
+pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Zone) -> bool {
     // Calculate u
     let a = &node_1.location.float_encode();
     let b = &node_2.location.float_encode();
@@ -383,12 +447,12 @@ pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
 
 //TODO CHANGE NAME
 fn tangent_prep(
-    zones: Vec<Circle>,
-    loc_radius_oi: &(Vec<f64>, f64, Option<Uuid>),
+    zones: Vec<Zone>,
+    loc_radius_oi: (Vec<f64>, f64, Option<Uuid>),
 ) -> Vec<(Node, Node)> {
     let possible_tangents = zones
         .iter()
-        .flat_map(|c| generate_tangents(*loc_radius_oi, c.loc_radius()))
+        .flat_map(|c| generate_tangents(loc_radius_oi.clone(), c.loc_radius()))
         .collect_vec();
 
     let valid_tangents = possible_tangents
@@ -502,7 +566,7 @@ mod tests {
     fn graph_build() {
         let start = Node::new([0.0, 0.0], None);
         let end = Node::new([5.0, 5.0], None);
-        let circle = vec![Circle::new([2.0, 2.0], 2.0), Circle::new([7.0, 7.0], 1.0)];
+        let circle = vec![Zone::new([2.0, 2.0], 2.0), Zone::new([7.0, 7.0], 1.0)];
         let graph = Graph::build_graph(start, end, circle);
         let (came_from, cost) = graph.a_star();
         // assert_eq!(nodes.unwrap().len(), 2);
@@ -513,7 +577,7 @@ mod tests {
     fn simple_graph_no_circle() {
         let start = Node::new([0.0, 0.0], None);
         let end = Node::new([5.0, 5.0], None);
-        let circle_vec = Vec::<Circle>::new();
+        let circle_vec = Vec::<Zone>::new();
         let graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
         assert_eq!(nodes.unwrap().len(), 1);
@@ -524,8 +588,8 @@ mod tests {
     fn simple_graph_no_circle_path() {
         let start = Node::new([0.0, 0.0], None);
         let end = Node::new([5.0, 5.0], None);
-        let circle_vec = Vec::<Circle>::new();
-        let graph = Graph::build_graph(start, end, circle_vec);
+        let circle_vec = Vec::<Zone>::new();
+        let graph = Box::new(Graph::build_graph(start, end, circle_vec));
         let (came_from, cost) = graph.a_star();
         let path = reconstruct_path(came_from, start, end);
         assert_eq!(path.len(), 2)
