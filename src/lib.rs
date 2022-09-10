@@ -4,16 +4,20 @@ use itertools::Itertools;
 use plotters::element::PointCollection;
 use plotters::prelude::*;
 use priority_queue::PriorityQueue;
+use serde::ser::{SerializeMap, SerializeStruct};
+use serde::{ser, Deserialize, Serialize};
+use serde_json_any_key::*;
 use std::{borrow::BorrowMut, collections::HashMap};
 use std::{mem, vec};
 use uuid::Uuid;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Graph {
     start: Node,
     end: Node,
     circles: HashMap<Uuid, Zone>,
-    // Edge: EndNode, weight, theta, direction
+    /// Edge: EndNode, weight, theta, direction
+    #[serde(with = "any_key_map")]
     edges: HashMap<Node, Vec<Edge>>,
 }
 
@@ -67,7 +71,6 @@ impl Graph {
                         .and_modify(|edges| edges.push(edg));
                     self.edges.insert(tangent_pair.1, Vec::<Edge>::new());
                 }
-                dbg!(&self.edges);
             } else {
                 // we can go directly to end
                 println!("Generate Edges for end");
@@ -102,6 +105,7 @@ impl Graph {
             let circle_of_node = self.circles.get_mut(&circle_id).expect("not in");
             for tangent_pair in valid_tangents {
                 let edg = Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY);
+                dbg!(edg.clone());
                 circle_of_node.nodes.push(tangent_pair.0);
                 let mut vec_for_edge: Vec<Edge> = Vec::new();
                 vec_for_edge.push(edg);
@@ -152,8 +156,7 @@ impl Graph {
     fn generate_hugging(self, node: Node, zone: Zone, zone_vec: Vec<Zone>) {
         let radius_sqr = (zone.radius.powi(2)) * 2.0;
         let tangent_nodes = zone.nodes.clone();
-        let node_combinations =
-            tangent_nodes.iter().map(|&p| (node, p)).collect_vec();
+        let node_combinations = tangent_nodes.iter().map(|&p| (node, p)).collect_vec();
         let intesect_zones = self.hugging_edge_zone_reduction(zone_vec, zone);
         // let valid_nodes;
         // let ;
@@ -200,7 +203,12 @@ impl Graph {
     }
 
     ///Return the valide bitangents that create a hugging edge
-    fn cull_hugging(self, node_combs: Vec<(Node, Node)>, intersect: Vec<(Point, Point)>, zone_loc: Point) {
+    fn cull_hugging(
+        self,
+        node_combs: Vec<(Node, Node)>,
+        intersect: Vec<(Point, Point)>,
+        zone_loc: Point,
+    ) {
         let valid = node_combs.iter().filter_map(|(s, e)| Some(e)).collect_vec();
     }
 }
@@ -215,7 +223,8 @@ pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) 
     path.reverse();
     return path;
 }
-#[derive(Debug, Clone)]
+
+#[derive(Debug, Clone, Serialize)]
 pub struct Zone {
     location: Point,
     uuid: Uuid,
@@ -241,7 +250,7 @@ impl LocationRadius for Zone {
     }
 }
 
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Copy)]
+#[derive(Debug, Clone, Hash, Eq, PartialEq, Copy, Serialize)]
 pub struct Node {
     location: Point,
     circle: Uuid,
@@ -257,8 +266,8 @@ impl Node {
 
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let loc_print = self.location.float_encode();
-        write!(f, "location: {:?}, circle {:?}", loc_print, self.circle)
+        let loc_print = self.location.encode_as_tuple();
+        write!(f, "location: {:?}, circle {}", loc_print, self.circle)
     }
 }
 
@@ -295,11 +304,29 @@ impl Point {
     }
 }
 
+impl ser::Serialize for Point {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut s = serializer.serialize_struct("Point", 2)?;
+        s.serialize_field(
+            "x",
+            &((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64),
+        );
+        s.serialize_field(
+            "y",
+            &((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64),
+        );
+        s.end()
+    }
+}
+
 trait LocationRadius {
     fn loc_radius(&self) -> (Vec<f64>, f64, Option<Uuid>);
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Edge {
     node: Node,
     weight: f64,
@@ -387,9 +414,9 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool
             .map(|value| value * u.clamp(0.0, 1.0))
             .collect();
         let e = add_pts(a, &clamp_product);
-        let d = distance(c, &e);
+        let d = round_to(distance(c, &e), 5);
 
-        if d < zone.radius {
+        if round_to(d, 5) < round_to(zone.radius, 5) {
             return true;
         }
     }
@@ -415,7 +442,7 @@ pub fn line_of_sight(node_1: &Node, node_2: &Node, zone: &Zone) -> bool {
     let e = add_pts(a, &clamp_product);
     let d = distance(c, &e);
 
-    if d < zone.radius {
+    if round_to(d, 5) < round_to(zone.radius, 5) {
         return true;
     }
 
@@ -446,6 +473,7 @@ pub fn subtrac_pts(p1: &[f64], p2: &[f64]) -> Vec<f64> {
 }
 
 //TODO CHANGE NAME
+//Move to Zone struct?
 fn tangent_prep(
     zones: Vec<Zone>,
     loc_radius_oi: (Vec<f64>, f64, Option<Uuid>),
