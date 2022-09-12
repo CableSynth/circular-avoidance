@@ -42,13 +42,15 @@ impl Graph {
         //3rd Case: traversal of nodes avaliable
 
         //Always check for items at the node
-        if self.edges.get(&node).unwrap().len() > 0 {
+        if self.edges.get(&node).is_none() {
+            println!("no node");
+            return None;
+        } else if self.edges.get(&node).expect("No node in graph").len() > 0 {
             println!("we have items in the node");
-            return Some(self.edges.get(&node).unwrap().to_vec());
+            return Some(self.edges.get(&node)?.to_vec());
         } else if node == self.start {
             println!("We are start");
 
-            //Check if we escaped
             let truth = line_of_sight_zones(
                 &self.start,
                 &self.end,
@@ -133,7 +135,7 @@ impl Graph {
                 break;
             }
 
-            for edge in self.to_owned().neighbors(current).unwrap() {
+            for edge in self.to_owned().neighbors(current).unwrap_or_else(|| Vec::<Edge>::new()) {
                 let new_cost = cost_so_far.get(&current).expect("node not in cost") + edge.weight;
 
                 if !cost_so_far.contains_key(&edge.node)
@@ -313,11 +315,11 @@ impl ser::Serialize for Point {
         s.serialize_field(
             "x",
             &((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64),
-        );
+        )?;
         s.serialize_field(
             "y",
             &((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64),
-        );
+        )?;
         s.end()
     }
 }
@@ -415,6 +417,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool
             .collect();
         let e = add_pts(a, &clamp_product);
         let d = round_to(distance(c, &e), 5);
+        dbg!(d.round());
 
         if round_to(d, 5) < round_to(zone.radius, 5) {
             return true;
@@ -548,7 +551,7 @@ fn generate_tangents(
 }
 
 fn round_to(num: f64, places: i32) -> f64 {
-    let p = 10.0_f64.powi(places);
+    let p = 100.0_f64.powi(places);
     return (num * p).round() / p;
 }
 
@@ -593,10 +596,12 @@ mod tests {
     #[test]
     fn graph_build() {
         let start = Node::new([0.0, 0.0], None);
-        let end = Node::new([5.0, 5.0], None);
-        let circle = vec![Zone::new([2.0, 2.0], 2.0), Zone::new([7.0, 7.0], 1.0)];
+        let end = Node::new([7.0, 7.0], None);
+        let circle = vec![Zone::new([2.0, 2.0], 2.0)];
         let graph = Graph::build_graph(start, end, circle);
         let (came_from, cost) = graph.a_star();
+        let j = serde_json::to_string_pretty(&graph).expect("can't write");
+        println!("{}", j);
         // assert_eq!(nodes.unwrap().len(), 2);
         // print!("{:?}", graph)
     }
