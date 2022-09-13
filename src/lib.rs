@@ -118,24 +118,25 @@ impl Graph {
 
             //Next Build Huggin edges
         }
-        return Some(self.edges.get(&node).unwrap().to_vec());
+        return Some(self.edges.get(&node).unwrap().clone().to_vec());
     }
 
-    pub fn a_star(&self) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
+    pub fn a_star(self) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
         let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
         frontier.push(self.start, Number(0.0));
         let mut came_from: HashMap<Node, Node> = HashMap::new();
         let mut cost_so_far: HashMap<Node, f64> = HashMap::from([(self.start, 0.0)]);
+        let temp_graph = self;
 
         while !frontier.is_empty() {
             let (current, _) = frontier.pop().expect("No poped off an empty q");
 
-            if current == self.end {
+            if current == temp_graph.end {
                 println!("we have reached the end!");
                 break;
             }
 
-            for edge in self.to_owned().neighbors(current).unwrap_or_else(|| Vec::<Edge>::new()) {
+            for edge in temp_graph.neighbors(current).unwrap_or_else(|| Vec::<Edge>::new()) {
                 let new_cost = cost_so_far.get(&current).expect("node not in cost") + edge.weight;
 
                 if !cost_so_far.contains_key(&edge.node)
@@ -145,7 +146,7 @@ impl Graph {
                     let prio = new_cost
                         + distance(
                             &edge.node.location.float_encode(),
-                            &self.end.location.float_encode(),
+                            &temp_graph.clone().end.location.float_encode(),
                         );
                     frontier.push(edge.node, Number(prio));
                     came_from.insert(edge.node, current);
