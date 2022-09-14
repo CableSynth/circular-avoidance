@@ -31,11 +31,11 @@ impl Graph {
             start,
             end,
             circles,
-            edges: HashMap::from([(start, Vec::<Edge>::new())]),
+            edges: HashMap::from([(start, Vec::<Edge>::new()), (end, Vec::<Edge>::new())]),
         }
     }
 
-    pub fn neighbors(mut self, node: Node) -> Option<Vec<Edge>> {
+    pub fn neighbors(&mut self, node: Node) -> Option<Vec<Edge>> {
         //There are three cases
         //First Case: node is start. We need to check to see if we had to escape
         //Second Case: we are at a zone. Find all bitangents from zone to others
@@ -121,41 +121,6 @@ impl Graph {
         return Some(self.edges.get(&node).unwrap().clone().to_vec());
     }
 
-    pub fn a_star(self) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
-        let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
-        frontier.push(self.start, Number(0.0));
-        let mut came_from: HashMap<Node, Node> = HashMap::new();
-        let mut cost_so_far: HashMap<Node, f64> = HashMap::from([(self.start, 0.0)]);
-        let temp_graph = self;
-
-        while !frontier.is_empty() {
-            let (current, _) = frontier.pop().expect("No poped off an empty q");
-
-            if current == temp_graph.end {
-                println!("we have reached the end!");
-                break;
-            }
-
-            for edge in temp_graph.neighbors(current).unwrap_or_else(|| Vec::<Edge>::new()) {
-                let new_cost = cost_so_far.get(&current).expect("node not in cost") + edge.weight;
-
-                if !cost_so_far.contains_key(&edge.node)
-                    || &new_cost < cost_so_far.get(&edge.node).unwrap()
-                {
-                    cost_so_far.insert(edge.node, new_cost);
-                    let prio = new_cost
-                        + distance(
-                            &edge.node.location.float_encode(),
-                            &temp_graph.clone().end.location.float_encode(),
-                        );
-                    frontier.push(edge.node, Number(prio));
-                    came_from.insert(edge.node, current);
-                }
-            }
-        }
-
-        return (came_from, cost_so_far);
-    }
     fn generate_hugging(self, node: Node, zone: Zone, zone_vec: Vec<Zone>) {
         let radius_sqr = (zone.radius.powi(2)) * 2.0;
         let tangent_nodes = zone.nodes.clone();
@@ -386,6 +351,44 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
     (mantissa, exponent, sign)
 }
 
+pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
+    let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
+    frontier.push(graph.start, Number(0.0));
+    let mut came_from: HashMap<Node, Node> = HashMap::new();
+    let mut cost_so_far: HashMap<Node, f64> = HashMap::from([(graph.start, 0.0)]);
+
+    while !frontier.is_empty() {
+        let (current, _) = frontier.pop().expect("No poped off an empty q");
+
+        if current == graph.end {
+            println!("we have reached the end!");
+            break;
+        }
+
+        let _ = graph
+            .neighbors(current)
+            .unwrap_or_else(|| Vec::<Edge>::new())
+            .iter()
+            .map(|e| {
+                let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
+
+                if !cost_so_far.contains_key(&e.node)
+                    || &new_cost < cost_so_far.get(&e.node).unwrap()
+                {
+                    cost_so_far.insert(e.node, new_cost);
+                    let prio = new_cost
+                        + distance(
+                            &e.node.location.float_encode(),
+                            &graph.clone().end.location.float_encode(),
+                        );
+                    frontier.push(e.node, Number(prio));
+                    came_from.insert(e.node, current);
+                }
+            });
+    }
+
+    return (came_from, cost_so_far);
+}
 ///
 /// # Arguments
 /// * `node_1`
@@ -599,8 +602,8 @@ mod tests {
         let start = Node::new([0.0, 0.0], None);
         let end = Node::new([7.0, 7.0], None);
         let circle = vec![Zone::new([2.0, 2.0], 2.0)];
-        let graph = Graph::build_graph(start, end, circle);
-        let (came_from, cost) = graph.a_star();
+        let mut graph = Graph::build_graph(start, end, circle);
+        let (came_from, cost) = a_star(&mut graph);
         let j = serde_json::to_string_pretty(&graph).expect("can't write");
         println!("{}", j);
         // assert_eq!(nodes.unwrap().len(), 2);
@@ -612,7 +615,7 @@ mod tests {
         let start = Node::new([0.0, 0.0], None);
         let end = Node::new([5.0, 5.0], None);
         let circle_vec = Vec::<Zone>::new();
-        let graph = Graph::build_graph(start, end, circle_vec);
+        let mut graph = Graph::build_graph(start, end, circle_vec);
         let nodes = graph.neighbors(start);
         assert_eq!(nodes.unwrap().len(), 1);
         // print!("{:?}", graph)
@@ -623,8 +626,8 @@ mod tests {
         let start = Node::new([0.0, 0.0], None);
         let end = Node::new([5.0, 5.0], None);
         let circle_vec = Vec::<Zone>::new();
-        let graph = Box::new(Graph::build_graph(start, end, circle_vec));
-        let (came_from, cost) = graph.a_star();
+        let mut graph = Graph::build_graph(start, end, circle_vec);
+        let (came_from, cost) = a_star(&mut graph);
         let path = reconstruct_path(came_from, start, end);
         assert_eq!(path.len(), 2)
         // print!("{:?}", graph)
