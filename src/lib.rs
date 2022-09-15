@@ -534,12 +534,12 @@ fn generate_tangents(
             let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
 
             let tangent_1_loc = [
-                round_to(start_loc[0] + start_radius * nx, 5),
-                round_to(start_loc[1] + start_radius * ny, 5),
+                round_to(start_loc[0] + start_radius * nx, 5) + 0.0,
+                round_to(start_loc[1] + start_radius * ny, 5) + 0.0,
             ];
             let tangent_2_loc = [
-                round_to(end_loc[0] - sign1 as f64 * end_radius * nx, 5),
-                round_to(end_loc[1] - sign1 as f64 * end_radius * ny, 5),
+                round_to(end_loc[0] - sign1 as f64 * end_radius * nx, 5) + 0.0,
+                round_to(end_loc[1] - sign1 as f64 * end_radius * ny, 5) + 0.0,
             ];
 
             let tan_node_start = Node::new(tangent_1_loc, start_uuid);
