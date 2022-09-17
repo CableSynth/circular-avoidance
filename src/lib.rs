@@ -1,8 +1,6 @@
 use core::cmp::Ordering;
 use core::fmt;
 use itertools::Itertools;
-use plotters::element::PointCollection;
-use plotters::prelude::*;
 use priority_queue::PriorityQueue;
 use serde::ser::{SerializeMap, SerializeStruct};
 use serde::{ser, Deserialize, Serialize};
@@ -51,14 +49,14 @@ impl Graph {
         } else if node == self.start {
             println!("We are start");
 
-            let truth = line_of_sight_zones(
+            let is_blocked = line_of_sight_zones(
                 &self.start,
                 &self.end,
                 &self.circles.values().cloned().collect_vec(),
             );
 
             //are any circles in our way
-            if truth {
+            if is_blocked {
                 println!("Build bitangents for all zones from start");
 
                 let temp_c = self.circles.values().cloned().collect_vec();
@@ -85,9 +83,9 @@ impl Graph {
             }
         } else {
             // need to get the circle that node lies on
+            println!("Build Tangents from circle");
             let circle_id = node.circle;
             let circle_of_node = self.circles.get(&circle_id).expect("Zone not valid?");
-
             //Find the valid circles (i.e all the ones except the one we are on)
             let valid_circles: Vec<Zone> = self
                 .circles
@@ -101,22 +99,44 @@ impl Graph {
                 })
                 .collect();
 
-            let valid_tangents = tangent_prep(valid_circles, circle_of_node.loc_radius());
+            let end_tangents =
+                generate_tangents(self.end.loc_radius(), circle_of_node.loc_radius());
+            let end_tangents = end_tangents
+                .iter()
+                .filter_map(|(s, e)| {
+                    if line_of_sight_zones(&self.end, e, &valid_circles) {
+                        None
+                    } else {
+                        Some((s, e))
+                    }
+                })
+                .collect_vec();
 
-            // We build out the surfing edges from the circles
-            let circle_of_node = self.circles.get_mut(&circle_id).expect("not in");
-            for tangent_pair in valid_tangents {
-                let edg = Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY);
-                dbg!(edg.clone());
-                circle_of_node.nodes.push(tangent_pair.0);
-                let mut vec_for_edge: Vec<Edge> = Vec::new();
-                vec_for_edge.push(edg);
-                self.edges.insert(tangent_pair.0, vec_for_edge);
-                self.edges.insert(tangent_pair.1, Vec::<Edge>::new());
+            if end_tangents.is_empty() {
+                let valid_tangents = tangent_prep(valid_circles, circle_of_node.loc_radius());
+
+                // We build out the surfing edges from the circles
+                let circle_of_node = self.circles.get_mut(&circle_id).expect("not in");
+                for tangent_pair in valid_tangents {
+                    let edg = Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY);
+                    circle_of_node.nodes.push(tangent_pair.0);
+                    let mut vec_for_edge: Vec<Edge> = Vec::new();
+                    vec_for_edge.push(edg);
+                    self.edges.insert(tangent_pair.0, vec_for_edge);
+                    self.edges.insert(tangent_pair.1, Vec::<Edge>::new());
+                }
+
+                //Next Build Huggin edges
+            } else {
+                let circle_of_node = self.circles.get_mut(&circle_id).expect("Zone not valid?");
+                for (_, &n) in end_tangents {
+                    let edg = Edge::generate_edge(n, self.end, f64::INFINITY);
+                    circle_of_node.nodes.push(n);
+                    let mut vec_for_edge: Vec<Edge> = Vec::new();
+                    vec_for_edge.push(edg);
+                    self.edges.insert(n, vec_for_edge);
+                }
             }
-            todo!("Build the surfing end")
-
-            //Next Build Huggin edges
         }
         return Some(self.edges.get(&node).unwrap().clone().to_vec());
     }
@@ -124,7 +144,6 @@ impl Graph {
     fn generate_hugging(self, node: Node, zone: Zone, zone_vec: Vec<Zone>) {
         let radius_sqr = (zone.radius.powi(2)) * 2.0;
         let tangent_nodes = zone.nodes.clone();
-        let node_combinations = tangent_nodes.iter().map(|&p| (node, p)).collect_vec();
         let intesect_zones = self.hugging_edge_zone_reduction(zone_vec, zone);
         // let valid_nodes;
         // let ;
@@ -365,11 +384,8 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f
             break;
         }
 
-        let _ = graph
-            .neighbors(current)
-            .unwrap_or_else(|| Vec::<Edge>::new())
-            .iter()
-            .map(|e| {
+        for e in graph.neighbors(current).unwrap_or_else(|| Vec::<Edge>::new()) {
+
                 let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
 
                 if !cost_so_far.contains_key(&e.node)
@@ -384,7 +400,27 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f
                     frontier.push(e.node, Number(prio));
                     came_from.insert(e.node, current);
                 }
-            });
+        }
+        // let _ = graph
+        //     .neighbors(current)
+        //     .unwrap_or_else(|| Vec::<Edge>::new())
+        //     .iter()
+        //     .map(|e| {
+        //         let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
+
+        //         if !cost_so_far.contains_key(&e.node)
+        //             || &new_cost < cost_so_far.get(&e.node).unwrap()
+        //         {
+        //             cost_so_far.insert(e.node, new_cost);
+        //             let prio = new_cost
+        //                 + distance(
+        //                     &e.node.location.float_encode(),
+        //                     &graph.clone().end.location.float_encode(),
+        //                 );
+        //             frontier.push(e.node, Number(prio));
+        //             came_from.insert(e.node, current);
+        //         }
+        //     });
     }
 
     return (came_from, cost_so_far);
