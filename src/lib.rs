@@ -401,26 +401,7 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f
                     came_from.insert(e.node, current);
                 }
         }
-        // let _ = graph
-        //     .neighbors(current)
-        //     .unwrap_or_else(|| Vec::<Edge>::new())
-        //     .iter()
-        //     .map(|e| {
-        //         let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
-
-        //         if !cost_so_far.contains_key(&e.node)
-        //             || &new_cost < cost_so_far.get(&e.node).unwrap()
-        //         {
-        //             cost_so_far.insert(e.node, new_cost);
-        //             let prio = new_cost
-        //                 + distance(
-        //                     &e.node.location.float_encode(),
-        //                     &graph.clone().end.location.float_encode(),
-        //                 );
-        //             frontier.push(e.node, Number(prio));
-        //             came_from.insert(e.node, current);
-        //         }
-        //     });
+        
     }
 
     return (came_from, cost_so_far);
