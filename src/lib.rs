@@ -65,7 +65,7 @@ impl Graph {
                 //Input all tangent pairs into the graph from start
                 //Build and add new empty entry to access later
                 for tangent_pair in valid_tangents {
-                    let edg = Edge::generate_edge(self.start, tangent_pair.1, f64::INFINITY);
+                    let edg = Edge::generate_edge(self.start, tangent_pair.1, f64::INFINITY, None);
                     self.edges
                         .entry(self.start)
                         .and_modify(|edges| edges.push(edg));
@@ -79,13 +79,14 @@ impl Graph {
                     self.start,
                     self.end,
                     f64::INFINITY,
+                    None,
                 )]);
             }
         } else {
             // need to get the circle that node lies on
             println!("Build Tangents from circle");
             let circle_id = node.circle;
-            let circle_of_node = self.circles.get(&circle_id).expect("Zone not valid?");
+            let circle_of_node = self.circles.get_mut(&circle_id).expect("Zone not valid?").clone();
             //Find the valid circles (i.e all the ones except the one we are on)
             let valid_circles: Vec<Zone> = self
                 .circles
@@ -113,42 +114,53 @@ impl Graph {
                 .collect_vec();
 
             if end_tangents.is_empty() {
-                let valid_tangents = tangent_prep(valid_circles, circle_of_node.loc_radius());
+                let valid_tangents = tangent_prep(valid_circles.clone(), circle_of_node.loc_radius());
 
                 // We build out the surfing edges from the circles
-                let circle_of_node = self.circles.get_mut(&circle_id).expect("not in");
                 for tangent_pair in valid_tangents {
-                    let edg = Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY);
-                    circle_of_node.nodes.push(tangent_pair.0);
+                    let edg =
+                        Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY, None);
+                    self.circles.entry(circle_id).and_modify(|z|z.nodes.push(tangent_pair.0));
                     let mut vec_for_edge: Vec<Edge> = Vec::new();
                     vec_for_edge.push(edg);
                     self.edges.insert(tangent_pair.0, vec_for_edge);
                     self.edges.insert(tangent_pair.1, Vec::<Edge>::new());
                 }
-
-                //Next Build Huggin edges
             } else {
-                let circle_of_node = self.circles.get_mut(&circle_id).expect("Zone not valid?");
                 for (_, &n) in end_tangents {
-                    let edg = Edge::generate_edge(n, self.end, f64::INFINITY);
-                    circle_of_node.nodes.push(n);
+                    let edg = Edge::generate_edge(n, self.end, f64::INFINITY, None);
+                    self.circles.entry(circle_id).and_modify(|z|z.nodes.push(n));
                     let mut vec_for_edge: Vec<Edge> = Vec::new();
                     vec_for_edge.push(edg);
                     self.edges.insert(n, vec_for_edge);
                 }
             }
+            //Next Build Huggin edges
+            self.generate_hugging(node, circle_of_node, valid_circles.clone());
         }
         return Some(self.edges.get(&node).unwrap().clone().to_vec());
     }
 
-    fn generate_hugging(self, node: Node, zone: Zone, zone_vec: Vec<Zone>) {
+    fn generate_hugging(&mut self, node: Node, zone: Zone, zone_vec: Vec<Zone>) {
         let radius_sqr = (zone.radius.powi(2)) * 2.0;
-        let tangent_nodes = zone.nodes.clone();
-        let intesect_zones = self.hugging_edge_zone_reduction(zone_vec, zone);
+        // let tangent_nodes = zone.nodes;
+        // let intesect_zones = self.hugging_edge_zone_reduction(zone_vec, zone);
+
+        for n in zone.nodes {
+            let dist = distance(&node.location.float_encode(), &n.location.float_encode());
+            let round_temp = round_to((radius_sqr - dist.powi(2)) / radius_sqr, 5);
+            let alpha = round_temp.acos();
+            let edg = Edge::generate_edge(node, n, alpha, Some(zone.radius));
+            self.edges.entry(node).and_modify(|edges| edges.push(edg));
+        }
         // let valid_nodes;
         // let ;
     }
-    fn hugging_edge_zone_reduction(self, zones: Vec<Zone>, focus: Zone) -> Vec<(Point, Point)> {
+    fn hugging_edge_zone_reduction(
+        &mut self,
+        zones: Vec<Zone>,
+        focus: Zone,
+    ) -> Vec<(Point, Point)> {
         let (focus_loc, focus_radius, _) = focus.loc_radius();
         let zones_to_return = zones
             .iter()
@@ -318,11 +330,11 @@ pub struct Edge {
     node: Node,
     weight: f64,
     theta: f64,
-    direction: Vec<f64>,
+    direction: Option<Vec<f64>>,
 }
 
 impl Edge {
-    fn new(node: Node, weight: f64, theta: f64, direction: Vec<f64>) -> Self {
+    fn new(node: Node, weight: f64, theta: f64, direction: Option<Vec<f64>>) -> Self {
         Self {
             node,
             weight,
@@ -330,13 +342,21 @@ impl Edge {
             direction,
         }
     }
-    fn generate_edge(start: Node, end: Node, theta: f64) -> Edge {
+    fn generate_edge(start: Node, end: Node, theta: f64, radius: Option<f64>) -> Edge {
         let start_loc = &start.location.float_encode();
         let end_loc = &end.location.float_encode();
-        let distance = distance(&start_loc, &end_loc);
-        let comb_vec = subtrac_pts(&end_loc, &start_loc);
-        let direction = comb_vec.iter().map(|val| val / distance).collect_vec();
-        Edge::new(end, distance, theta, direction)
+        let mut dist: f64;
+        let mut comb_vec: Vec<f64>;
+        let mut direction: Option<Vec<f64>>;
+        if theta.is_infinite() {
+            dist = distance(&start_loc, &end_loc);
+            comb_vec = subtrac_pts(&end_loc, &start_loc);
+            direction = Some(comb_vec.iter().map(|val| val / dist).collect_vec());
+        } else {
+            dist = radius.unwrap() * theta;
+            direction = None;
+        }
+        Edge::new(end, dist, theta, direction)
     }
 }
 
@@ -384,24 +404,23 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f
             break;
         }
 
-        for e in graph.neighbors(current).unwrap_or_else(|| Vec::<Edge>::new()) {
+        for e in graph
+            .neighbors(current)
+            .unwrap_or_else(|| Vec::<Edge>::new())
+        {
+            let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
 
-                let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
-
-                if !cost_so_far.contains_key(&e.node)
-                    || &new_cost < cost_so_far.get(&e.node).unwrap()
-                {
-                    cost_so_far.insert(e.node, new_cost);
-                    let prio = new_cost
-                        + distance(
-                            &e.node.location.float_encode(),
-                            &graph.clone().end.location.float_encode(),
-                        );
-                    frontier.push(e.node, Number(prio));
-                    came_from.insert(e.node, current);
-                }
+            if !cost_so_far.contains_key(&e.node) || &new_cost < cost_so_far.get(&e.node).unwrap() {
+                cost_so_far.insert(e.node, new_cost);
+                let prio = new_cost
+                    + distance(
+                        &e.node.location.float_encode(),
+                        &graph.clone().end.location.float_encode(),
+                    );
+                frontier.push(e.node, Number(prio));
+                came_from.insert(e.node, current);
+            }
         }
-        
     }
 
     return (came_from, cost_so_far);
@@ -440,7 +459,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool
         let d = round_to(distance(c, &e), 5);
         dbg!(d.round());
 
-        if round_to(d, 5) < round_to(zone.radius, 5) {
+        if d < round_to(zone.radius, 5) {
             return true;
         }
     }
