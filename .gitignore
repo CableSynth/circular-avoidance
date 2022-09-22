@@ -1,2 +1,4 @@
 /target
 /Cargo.lock
+vis_graph.jpg
+json_out/test.json
