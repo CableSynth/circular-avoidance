@@ -636,11 +636,13 @@ mod tests {
     #[test]
     fn graph_build() {
         let start = Node::new([0.0, 0.0], None);
-        let end = Node::new([7.0, 7.0], None);
-        let circle = vec![Zone::new([2.0, 2.0], 2.0)];
+        let end = Node::new([70.0, 70.0], None);
+        let circle = vec![Zone::new([2.0, 2.0], 2.0), Zone::new([10.0, 9.0], 2.0)];
         let mut graph = Graph::build_graph(start, end, circle);
         let (came_from, cost) = a_star(&mut graph);
         let j = serde_json::to_string_pretty(&graph).expect("can't write");
+        let path = reconstruct_path(came_from, start, end);
+        println!("path: {:?}", path);
         println!("{}", j);
         // assert_eq!(nodes.unwrap().len(), 2);
         // print!("{:?}", graph)
