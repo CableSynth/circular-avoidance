@@ -29,7 +29,7 @@ for c in circles:
 for e in edges:
     node_in_graph = json.loads(e)
     loc = node_in_graph["location"]
-    plt.plot(loc['x'], loc['y'], 'o')
+    plt.plot(loc['x'], loc['y'], 'o',)
     for n in edges[e]:
         n_loc = n["node"]["location"]
         n_theta = n["theta"]
@@ -39,6 +39,6 @@ for e in edges:
             # arc_con = ConnectionStyle.Arc3(n_theta).connect([loc['x'], loc['y']], [n_loc['x'], n_loc['y']])
             # ax.add_patch(arc_con)
 
-p = PatchCollection(patches)
+p = PatchCollection(patches, match_original = True)
 ax.add_collection(p)
 plt.savefig("vis_graph.jpg")

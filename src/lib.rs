@@ -86,7 +86,11 @@ impl Graph {
             // need to get the circle that node lies on
             println!("Build Tangents from circle");
             let circle_id = node.circle;
-            let circle_of_node = self.circles.get_mut(&circle_id).expect("Zone not valid?").clone();
+            let circle_of_node = self
+                .circles
+                .get_mut(&circle_id)
+                .expect("Zone not valid?")
+                .clone();
             //Find the valid circles (i.e all the ones except the one we are on)
             let valid_circles: Vec<Zone> = self
                 .circles
@@ -114,13 +118,16 @@ impl Graph {
                 .collect_vec();
 
             if end_tangents.is_empty() {
-                let valid_tangents = tangent_prep(valid_circles.clone(), circle_of_node.loc_radius());
+                let valid_tangents =
+                    tangent_prep(valid_circles.clone(), circle_of_node.loc_radius());
 
                 // We build out the surfing edges from the circles
                 for tangent_pair in valid_tangents {
                     let edg =
                         Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY, None);
-                    self.circles.entry(circle_id).and_modify(|z|z.nodes.push(tangent_pair.0));
+                    self.circles
+                        .entry(circle_id)
+                        .and_modify(|z| z.nodes.push(tangent_pair.0));
                     let mut vec_for_edge: Vec<Edge> = Vec::new();
                     vec_for_edge.push(edg);
                     self.edges.insert(tangent_pair.0, vec_for_edge);
@@ -129,24 +136,29 @@ impl Graph {
             } else {
                 for (_, &n) in end_tangents {
                     let edg = Edge::generate_edge(n, self.end, f64::INFINITY, None);
-                    self.circles.entry(circle_id).and_modify(|z|z.nodes.push(n));
+                    self.circles
+                        .entry(circle_id)
+                        .and_modify(|z| z.nodes.push(n));
                     let mut vec_for_edge: Vec<Edge> = Vec::new();
                     vec_for_edge.push(edg);
                     self.edges.insert(n, vec_for_edge);
                 }
             }
             //Next Build Huggin edges
-            self.generate_hugging(node, circle_of_node, valid_circles.clone());
+            self.generate_hugging(node, &circle_of_node, valid_circles.clone());
         }
         return Some(self.edges.get(&node).unwrap().clone().to_vec());
     }
 
-    fn generate_hugging(&mut self, node: Node, zone: Zone, zone_vec: Vec<Zone>) {
+    fn generate_hugging(&mut self, node: Node, zone: &Zone, zone_vec: Vec<Zone>) {
         let radius_sqr = (zone.radius.powi(2)) * 2.0;
-        // let tangent_nodes = zone.nodes;
-        // let intesect_zones = self.hugging_edge_zone_reduction(zone_vec, zone);
+        let tangent_nodes = zone.nodes.clone();
+        let interect_points = self.hugging_edge_zone_intersection(zone_vec, zone);
+        println!("{:?}", interect_points);
+        // Here is where we-wa-chu find the list of intersection areas
+        // then we can filter the nodes in `tangent_nodes`
 
-        for n in zone.nodes {
+        for n in tangent_nodes {
             let dist = distance(&node.location.float_encode(), &n.location.float_encode());
             let round_temp = round_to((radius_sqr - dist.powi(2)) / radius_sqr, 5);
             let alpha = round_temp.acos();
@@ -156,13 +168,13 @@ impl Graph {
         // let valid_nodes;
         // let ;
     }
-    fn hugging_edge_zone_reduction(
+    fn hugging_edge_zone_intersection(
         &mut self,
         zones: Vec<Zone>,
-        focus: Zone,
+        focus: &Zone,
     ) -> Vec<(Point, Point)> {
         let (focus_loc, focus_radius, _) = focus.loc_radius();
-        let zones_to_return = zones
+        let intersections = zones
             .iter()
             .cloned()
             .filter_map(|z| {
@@ -190,7 +202,8 @@ impl Graph {
                     let point_a_y = intermediate[1] - h * temp_diff[0] / dist;
                     let point_b_x = intermediate[0] - h * temp_diff[1] / dist;
                     let point_b_y = intermediate[1] + h * temp_diff[0] / dist;
-
+                    dbg!((point_a_x, point_a_y));
+                    dbg!((point_b_x, point_b_y));
                     Some((
                         Point::new(point_a_x, point_a_y),
                         Point::new(point_b_x, point_b_y),
@@ -198,18 +211,18 @@ impl Graph {
                 }
             })
             .collect_vec();
-        return zones_to_return;
+        return intersections;
     }
 
-    ///Return the valide bitangents that create a hugging edge
-    fn cull_hugging(
+    //Return the valide bitangents that create a hugging edge
+    /* fn cull_hugging(
         self,
-        node_combs: Vec<(Node, Node)>,
+        node_combs: Vec<(Node)>,
         intersect: Vec<(Point, Point)>,
         zone_loc: Point,
     ) {
         let valid = node_combs.iter().filter_map(|(s, e)| Some(e)).collect_vec();
-    }
+    } */
 }
 pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
     let mut current = end.clone();
@@ -425,20 +438,7 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f
 
     return (came_from, cost_so_far);
 }
-///
-/// # Arguments
-/// * `node_1`
-/// * `node_2`
-/// * `zone`
-/// This functions takes in two points and a zone
-/// # Examples
-///
-/// ```
-/// use circular_avoidance::line_of_sight;
-///
-/// let result = line_of_sight(node_1, node_2, zones);
-/// assert_eq!(result, );
-/// ```
+
 pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool {
     // Calculate u
     let a = &node_1.location.float_encode();
@@ -448,7 +448,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool
     for zone in zones.iter() {
         let c = &zone.location.float_encode();
         let ac_difference = subtrac_pts(c, a);
-        let u = dot_product(&ac_difference, &ab_difference) / ab_dot;
+        let u = round_to(dot_product(&ac_difference, &ab_difference) / ab_dot, 5);
 
         // Clamp u and find e the point that intersects ab and passes through c
         let clamp_product: Vec<f64> = ab_difference
@@ -456,8 +456,7 @@ pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool
             .map(|value| value * u.clamp(0.0, 1.0))
             .collect();
         let e = add_pts(a, &clamp_product);
-        let d = round_to(distance(c, &e), 5);
-        dbg!(d.round());
+        let d = round_to(distance(c, &e), 4);
 
         if d < round_to(zone.radius, 5) {
             return true;
@@ -570,8 +569,8 @@ fn generate_tangents(
             let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
 
             let tangent_1_loc = [
-                round_to(start_loc[0] + start_radius * nx, 5) + 0.0,
-                round_to(start_loc[1] + start_radius * ny, 5) + 0.0,
+                round_to(start_loc[0] - start_radius * nx, 5) + 0.0,
+                round_to(start_loc[1] - start_radius * ny, 5) + 0.0,
             ];
             let tangent_2_loc = [
                 round_to(end_loc[0] - sign1 as f64 * end_radius * nx, 5) + 0.0,
@@ -593,81 +592,4 @@ fn generate_tangents(
 fn round_to(num: f64, places: i32) -> f64 {
     let p = 100.0_f64.powi(places);
     return (num * p).round() / p;
-}
-
-#[cfg(test)]
-mod tests {
-
-    use super::*;
-
-    #[test]
-    fn test_point() {
-        let float_pt = 2.333;
-        let float_pt_2 = 2.333;
-        let pt = Point::new(float_pt, float_pt_2);
-        assert_eq!(pt.float_encode(), vec![float_pt, float_pt_2]);
-        assert_eq!(pt.float_encode()[1], float_pt_2);
-    }
-
-    #[test]
-    fn test_distance() {
-        let d = distance(&vec![0.0, 0.0], &vec![0.0, 1.0]);
-        assert_eq!(d, 1.0)
-    }
-
-    #[test]
-    fn test_line_of_sight() {
-        let n1 = Node::new([0.0, 0.0], None);
-    }
-
-    #[test]
-    fn test_3d_distance() {
-        let d = distance(&vec![0.0, 0.0, 0.0], &vec![1.0, 1.0, 1.0]);
-        assert_eq!(d, 3_f64.sqrt())
-    }
-
-    #[test]
-    fn hypt_vs_distance() {
-        let sum = subtrac_pts(&vec![0.0, 2.0], &vec![0.0, 3.0]);
-        let d = distance(&vec![0.0, 0.0], &vec![0.0, 1.0]);
-        let h = sum[0].hypot(sum[1]);
-        assert_eq!(d, h)
-    }
-    #[test]
-    fn graph_build() {
-        let start = Node::new([0.0, 0.0], None);
-        let end = Node::new([70.0, 70.0], None);
-        let circle = vec![Zone::new([2.0, 2.0], 2.0), Zone::new([10.0, 9.0], 2.0)];
-        let mut graph = Graph::build_graph(start, end, circle);
-        let (came_from, cost) = a_star(&mut graph);
-        let j = serde_json::to_string_pretty(&graph).expect("can't write");
-        let path = reconstruct_path(came_from, start, end);
-        println!("path: {:?}", path);
-        println!("{}", j);
-        // assert_eq!(nodes.unwrap().len(), 2);
-        // print!("{:?}", graph)
-    }
-
-    #[test]
-    fn simple_graph_no_circle() {
-        let start = Node::new([0.0, 0.0], None);
-        let end = Node::new([5.0, 5.0], None);
-        let circle_vec = Vec::<Zone>::new();
-        let mut graph = Graph::build_graph(start, end, circle_vec);
-        let nodes = graph.neighbors(start);
-        assert_eq!(nodes.unwrap().len(), 1);
-        // print!("{:?}", graph)
-    }
-
-    #[test]
-    fn simple_graph_no_circle_path() {
-        let start = Node::new([0.0, 0.0], None);
-        let end = Node::new([5.0, 5.0], None);
-        let circle_vec = Vec::<Zone>::new();
-        let mut graph = Graph::build_graph(start, end, circle_vec);
-        let (came_from, cost) = a_star(&mut graph);
-        let path = reconstruct_path(came_from, start, end);
-        assert_eq!(path.len(), 2)
-        // print!("{:?}", graph)
-    }
 }
