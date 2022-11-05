@@ -157,6 +157,7 @@ impl Graph {
         println!("{:?}", interect_points);
         // Here is where we-wa-chu find the list of intersection areas
         // then we can filter the nodes in `tangent_nodes`
+        let valid_nodes = self.cull_hugging(node, tangent_nodes, interect_points, zone.loc_radius()); 
 
         for n in tangent_nodes {
             let dist = distance(&node.location.float_encode(), &n.location.float_encode());
@@ -215,14 +216,18 @@ impl Graph {
     }
 
     //Return the valide bitangents that create a hugging edge
-    /* fn cull_hugging(
+    fn cull_hugging(
         self,
-        node_combs: Vec<(Node)>,
+        node: Node,
+        nodes: Vec<Node>,
         intersect: Vec<(Point, Point)>,
         zone_loc: Point,
     ) {
-        let valid = node_combs.iter().filter_map(|(s, e)| Some(e)).collect_vec();
-    } */
+        let valid = nodes.iter().map(|n| {
+            n
+        
+        });
+    }
 }
 pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
     let mut current = end.clone();
