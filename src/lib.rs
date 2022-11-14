@@ -1,12 +1,12 @@
 use core::cmp::Ordering;
 use core::fmt;
-use itertools::Itertools;
+use itertools::{sorted, Itertools};
 use priority_queue::PriorityQueue;
 use serde::ser::{SerializeMap, SerializeStruct};
 use serde::{ser, Deserialize, Serialize};
 use serde_json_any_key::*;
 use std::{borrow::BorrowMut, collections::HashMap};
-use std::{mem, vec};
+use std::{f64::consts::PI, mem, vec};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
@@ -153,11 +153,10 @@ impl Graph {
     fn generate_hugging(&mut self, node: Node, zone: &Zone, zone_vec: Vec<Zone>) {
         let radius_sqr = (zone.radius.powi(2)) * 2.0;
         let tangent_nodes = zone.nodes.clone();
-        let interect_points = self.hugging_edge_zone_intersection(zone_vec, zone);
-        println!("{:?}", interect_points);
+        let intersects = self.hugging_edge_zone_intersection(zone_vec, zone);
         // Here is where we-wa-chu find the list of intersection areas
         // then we can filter the nodes in `tangent_nodes`
-        let valid_nodes = self.cull_hugging(node, tangent_nodes, interect_points, zone.loc_radius()); 
+        let valid_nodes = self.cull_hugging(node, &tangent_nodes, intersects, zone.location);
 
         for n in tangent_nodes {
             let dist = distance(&node.location.float_encode(), &n.location.float_encode());
@@ -166,14 +165,12 @@ impl Graph {
             let edg = Edge::generate_edge(node, n, alpha, Some(zone.radius));
             self.edges.entry(node).and_modify(|edges| edges.push(edg));
         }
-        // let valid_nodes;
-        // let ;
     }
     fn hugging_edge_zone_intersection(
         &mut self,
         zones: Vec<Zone>,
         focus: &Zone,
-    ) -> Vec<(Point, Point)> {
+    ) -> Vec<(f64, f64)> {
         let (focus_loc, focus_radius, _) = focus.loc_radius();
         let intersections = zones
             .iter()
@@ -203,12 +200,15 @@ impl Graph {
                     let point_a_y = intermediate[1] - h * temp_diff[0] / dist;
                     let point_b_x = intermediate[0] - h * temp_diff[1] / dist;
                     let point_b_y = intermediate[1] + h * temp_diff[0] / dist;
-                    dbg!((point_a_x, point_a_y));
-                    dbg!((point_b_x, point_b_y));
-                    Some((
-                        Point::new(point_a_x, point_a_y),
-                        Point::new(point_b_x, point_b_y),
-                    ))
+                    // Put it here lol do the calculation for intersections angles
+
+                    let intersection_edge_1 = subtrac_pts(&[point_a_x, point_a_y], &focus_loc);
+                    let intersection_edge_2 = subtrac_pts(&[point_b_x, point_b_y], &focus_loc);
+                    let intersection_angle_1 =
+                        (-intersection_edge_1[1]).atan2(-intersection_edge_1[0]) + PI;
+                    let intersection_angle_2 =
+                        (-intersection_edge_2[1]).atan2(-intersection_edge_2[0]) + PI;
+                    Some((intersection_angle_1, intersection_angle_2))
                 }
             })
             .collect_vec();
@@ -217,16 +217,41 @@ impl Graph {
 
     //Return the valide bitangents that create a hugging edge
     fn cull_hugging(
-        self,
+        &mut self,
         node: Node,
-        nodes: Vec<Node>,
-        intersect: Vec<(Point, Point)>,
+        nodes: &Vec<Node>,
+        intersects: Vec<(f64, f64)>,
         zone_loc: Point,
     ) {
-        let valid = nodes.iter().map(|n| {
-            n
-        
-        });
+        let arc_side1 = subtrac_pts(&node.location.float_encode(), &zone_loc.float_encode());
+        let angle_1 = (-arc_side1[1]).atan2(-arc_side1[0]) + PI;
+        let valid = nodes
+            .iter()
+            .filter_map(|n| {
+                let arc_side2 = subtrac_pts(&n.location.float_encode(), &zone_loc.float_encode());
+                let angle_2 = (-arc_side2[1]).atan2(-arc_side2[0]) + PI;
+                let mut sorted_angles = [angle_1, angle_2];
+                sorted_angles.sort_by(|a, b| a.partial_cmp(b).unwrap());
+                // Put the intesection Cull here
+                self.intersection_cull(n, sorted_angles, &intersects)
+            })
+            .collect_vec();
+    }
+
+    fn intersection_cull(
+        &mut self,
+        node: &Node,
+        sorted_angles: [f64; 2],
+        intersections: &Vec<(f64, f64)>,
+    ) -> Option<Node> {
+        for inter in intersections {
+            if (sorted_angles[0] < inter.0 && inter.0 < sorted_angles[1])
+                || (sorted_angles[0] < inter.1 && inter.1 < sorted_angles[1])
+            {
+                return None;
+            }
+        }
+        return Some(*node);
     }
 }
 pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
