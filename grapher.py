@@ -4,11 +4,11 @@ from matplotlib.patches import Circle, ConnectionStyle, ConnectionPatch
 from matplotlib.collections import PatchCollection
 from numpy import linspace, pi
 
-f = open('json_out/test.json')
+f = open('json_out/graph.json')
 
 figure, ax = plt.subplots()
-figure.set_figheight(8)
-figure.set_figwidth(8)
+#figure.set_figheight(8)
+#figure.set_figwidth(8)
 # ax.set_ylim(-10, 30)
 # ax.set_xlim(-10, 30)
 ax.set_autoscale_on(True)
