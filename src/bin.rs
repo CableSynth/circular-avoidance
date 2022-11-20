@@ -5,8 +5,18 @@ use std::{
     fs::{File, OpenOptions},
     vec,
 };
+use clap::Parser;
+
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Input CSV file
+    #[arg(short, long, required=true)]
+    file_name: String,
+}
 
 fn main() {
+    let args = Args::parse();
     let zone_list = [([2.0, 2.0], 2.0), ([9.0, 9.0], 3.0), ([9.0, 5.0], 3.0)];
     let start = Node::new([0.0, 0.0], None);
     let end = Node::new([30.0, 30.0], None);
