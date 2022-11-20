@@ -158,7 +158,7 @@ impl Graph {
         // then we can filter the nodes in `tangent_nodes`
         let valid_nodes = self.cull_hugging(node, &tangent_nodes, intersects, zone.location);
 
-        for n in tangent_nodes {
+        for n in valid_nodes {
             let dist = distance(&node.location.float_encode(), &n.location.float_encode());
             let round_temp = round_to((radius_sqr - dist.powi(2)) / radius_sqr, 5);
             let alpha = round_temp.acos();
@@ -205,7 +205,7 @@ impl Graph {
                     let intersection_edge_1 = subtrac_pts(&[point_a_x, point_a_y], &focus_loc);
                     let intersection_edge_2 = subtrac_pts(&[point_b_x, point_b_y], &focus_loc);
                     let intersection_angle_1 =
-                        (-intersection_edge_1[1]).atan2(-intersection_edge_1[0]) + PI;
+                        (-intersection_edge_1[1]).atan2(-intersection_edge_1[0])+ PI;
                     let intersection_angle_2 =
                         (-intersection_edge_2[1]).atan2(-intersection_edge_2[0]) + PI;
                     Some((intersection_angle_1, intersection_angle_2))
@@ -222,7 +222,7 @@ impl Graph {
         nodes: &Vec<Node>,
         intersects: Vec<(f64, f64)>,
         zone_loc: Point,
-    ) {
+    ) -> Vec<Node> {
         let arc_side1 = subtrac_pts(&node.location.float_encode(), &zone_loc.float_encode());
         let angle_1 = (-arc_side1[1]).atan2(-arc_side1[0]) + PI;
         let valid = nodes
@@ -236,6 +236,8 @@ impl Graph {
                 self.intersection_cull(n, sorted_angles, &intersects)
             })
             .collect_vec();
+
+        return valid;
     }
 
     fn intersection_cull(
@@ -254,14 +256,18 @@ impl Graph {
         return Some(*node);
     }
 }
-pub fn reconstruct_path(came_from: HashMap<Node, Node>, start: Node, end: Node) -> Vec<Node> {
-    let mut current = end.clone();
-    let mut path: Vec<Node> = Vec::new();
-    while !current.eq(&start) {
+pub fn reconstruct_path(
+    came_from: HashMap<Node, (Node, f64)>,
+    start: Node,
+    end: Node,
+) -> Vec<(Node, f64)> {
+    let mut current = (end.clone(), f64::INFINITY);
+    let mut path: Vec<(Node, f64)> = Vec::new();
+    while !current.0.eq(&start) {
         path.push(current);
-        current = *came_from.get(&current).expect("No path avaliable");
+        current = *came_from.get(&current.0).expect("No path avaliable");
     }
-    path.push(start);
+    path.push((start, f64::INFINITY));
     path.reverse();
     return path;
 }
@@ -433,14 +439,14 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
     (mantissa, exponent, sign)
 }
 
-pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f64>) {
+pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<Node, f64>) {
     let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
     frontier.push(graph.start, Number(0.0));
-    let mut came_from: HashMap<Node, Node> = HashMap::new();
+    let mut came_from: HashMap<Node, (Node, f64)> = HashMap::new();
     let mut cost_so_far: HashMap<Node, f64> = HashMap::from([(graph.start, 0.0)]);
 
     while !frontier.is_empty() {
-        let (current, _) = frontier.pop().expect("No poped off an empty q");
+        let (current, _) = frontier.pop().expect("an empty q");
 
         if current == graph.end {
             println!("we have reached the end!");
@@ -461,7 +467,7 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, Node>, HashMap<Node, f
                         &graph.clone().end.location.float_encode(),
                     );
                 frontier.push(e.node, Number(prio));
-                came_from.insert(e.node, current);
+                came_from.insert(e.node, (current, e.theta));
             }
         }
     }

@@ -7,7 +7,7 @@ use std::{
 };
 
 fn main() {
-    let zone_list = [([2.0, 2.0], 2.0), ([9.0, 9.0], 3.0)];
+    let zone_list = [([2.0, 2.0], 2.0), ([9.0, 9.0], 3.0), ([9.0, 5.0], 3.0)];
     let start = Node::new([0.0, 0.0], None);
     let end = Node::new([30.0, 30.0], None);
     //  let z = Zone::new([2.0, 2.0], 2.0);

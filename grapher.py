@@ -34,7 +34,7 @@ for e in edges:
         n_loc = n["node"]["location"]
         n_theta = n["theta"]
         if n_theta is None :
-            plt.plot([loc["x"], n_loc['x']], [loc['y'], n_loc['y']])
+            ax.plot([loc["x"], n_loc['x']], [loc['y'], n_loc['y']])
         # else:
             # arc_con = ConnectionStyle.Arc3(n_theta).connect([loc['x'], loc['y']], [n_loc['x'], n_loc['y']])
             # ax.add_patch(arc_con)
@@ -42,3 +42,22 @@ for e in edges:
 p = PatchCollection(patches, match_original = True)
 ax.add_collection(p)
 plt.savefig("vis_graph.jpg")
+
+# Find the path
+found_path = open('json_out/found_path.json')
+figure_1,ax_1 = plt.subplots()
+
+ax_1.set_autoscale_on(True)
+ax_1.axis("equal")
+ax_1.grid()
+data = json.load(found_path)
+
+for d in data:
+    print(d)
+    n = d[0]
+    loc = n["location"]
+    ax_1.plot(loc["x"], loc['y'], 'o')
+    
+p = PatchCollection(patches, match_original = True)
+ax_1.add_collection(p)
+figure_1.savefig("found_path.jpg")
