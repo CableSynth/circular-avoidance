@@ -345,6 +345,10 @@ impl Point {
             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64) as f32,
         )
     }
+    fn distance(self, rhs: Self) -> f64{
+        
+        0
+    }
 }
 
 impl Add for Point {
@@ -597,9 +601,8 @@ fn generate_tangents(
     }
     let center_difference = subtrac_pts(&start_loc, &end_loc);
     let center_norm = center_difference.iter().map(|val| val / d).collect_vec();
-    //TODO: Figure out what comparison to use for start/end
 
-    for sign1 in (-1..2).step_by(2) {
+    for sign1 in (-1..=1).step_by(2) {
         let mut c = (start_radius - sign1 as f64 * end_radius) / d;
         c = round_to(c, 5);
         if c.powi(2) > 1.0 {
