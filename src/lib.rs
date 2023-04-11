@@ -8,6 +8,7 @@ use serde_json_any_key::*;
 use std::{borrow::BorrowMut, collections::HashMap};
 use std::{f64::consts::PI, mem, vec};
 use uuid::Uuid;
+use std::ops::{Add, Sub};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Graph {
@@ -41,13 +42,10 @@ impl Graph {
 
         //Always check for items at the node
         if self.edges.get(&node).is_none() {
-            println!("no node");
             return None;
         } else if self.edges.get(&node).expect("No node in graph").len() > 0 {
-            println!("we have items in the node");
             return Some(self.edges.get(&node)?.to_vec());
         } else if node == self.start {
-            println!("We are start");
 
             let is_blocked = line_of_sight_zones(
                 &self.start,
@@ -57,7 +55,6 @@ impl Graph {
 
             //are any circles in our way
             if is_blocked {
-                println!("Build bitangents for all zones from start");
 
                 let temp_c = self.circles.values().cloned().collect_vec();
 
@@ -73,7 +70,6 @@ impl Graph {
                 }
             } else {
                 // we can go directly to end
-                println!("Generate Edges for end");
 
                 return Some(vec![Edge::generate_edge(
                     self.start,
@@ -84,7 +80,6 @@ impl Graph {
             }
         } else {
             // need to get the circle that node lies on
-            println!("Build Tangents from circle");
             let circle_id = node.circle;
             let circle_of_node = self
                 .circles
@@ -108,11 +103,11 @@ impl Graph {
                 generate_tangents(self.end.loc_radius(), circle_of_node.loc_radius());
             let end_tangents = end_tangents
                 .iter()
-                .filter_map(|(s, e)| {
-                    if line_of_sight_zones(&self.end, e, &valid_circles) {
+                .filter_map(|(start, end)| {
+                    if line_of_sight_zones(&self.end, end, &valid_circles) {
                         None
                     } else {
-                        Some((s, e))
+                        Some((start, end))
                     }
                 })
                 .collect_vec();
@@ -350,6 +345,26 @@ impl Point {
             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64) as f32,
         )
     }
+    fn distance(self, rhs: Self) -> f64{
+        
+        let square_sum: f64 = self.float_encode().iter()
+        .zip(rhs.float_encode().iter())
+        .map(|(x1, x2)| (x2 - x1).powi(2))
+        .sum();
+        square_sum.sqrt()
+    }
+}
+
+impl Add for Point {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        let s = self.float_encode();
+        let r = rhs.float_encode();
+        let point_vec =  s.iter().zip(r.iter()).map(|(left, right)| left + right).collect_vec();
+        Point::new(point_vec[0], point_vec[1])
+
+    }
 }
 
 impl ser::Serialize for Point {
@@ -475,8 +490,8 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<
     return (came_from, cost_so_far);
 }
 
-pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool {
-    // Calculate u
+pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &Vec<Zone>) -> bool {
+    // calculate u
     let a = &node_1.location.float_encode();
     let b = &node_2.location.float_encode();
     let ab_difference = subtrac_pts(b, a);
@@ -590,9 +605,8 @@ fn generate_tangents(
     }
     let center_difference = subtrac_pts(&start_loc, &end_loc);
     let center_norm = center_difference.iter().map(|val| val / d).collect_vec();
-    //TODO: Figure out what comparison to use for start/end
 
-    for sign1 in (-1..2).step_by(2) {
+    for sign1 in (-1..=1).step_by(2) {
         let mut c = (start_radius - sign1 as f64 * end_radius) / d;
         c = round_to(c, 5);
         if c.powi(2) > 1.0 {
