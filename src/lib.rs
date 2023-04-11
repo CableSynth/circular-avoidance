@@ -347,7 +347,11 @@ impl Point {
     }
     fn distance(self, rhs: Self) -> f64{
         
-        0
+        let square_sum: f64 = self.float_encode().iter()
+        .zip(rhs.float_encode().iter())
+        .map(|(x1, x2)| (x2 - x1).powi(2))
+        .sum();
+        square_sum.sqrt()
     }
 }
 
@@ -486,8 +490,8 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<
     return (came_from, cost_so_far);
 }
 
-pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool {
-    // Calculate u
+pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &Vec<Zone>) -> bool {
+    // calculate u
     let a = &node_1.location.float_encode();
     let b = &node_2.location.float_encode();
     let ab_difference = subtrac_pts(b, a);
