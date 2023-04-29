@@ -1,12 +1,12 @@
 use core::cmp::Ordering;
 use core::fmt;
-use itertools::{sorted, Itertools};
+use itertools::{Itertools};
 use priority_queue::PriorityQueue;
 use serde::ser::{SerializeMap, SerializeStruct};
-use serde::{ser, Deserialize, Serialize};
+use serde::{ser, Serialize};
 use serde_json_any_key::*;
-use std::ops::{Add, Sub};
-use std::{borrow::BorrowMut, collections::HashMap};
+use std::ops::{Add};
+use std::{collections::HashMap};
 use std::{f64::consts::PI, mem, vec};
 use uuid::Uuid;
 
@@ -43,7 +43,7 @@ impl Graph {
         //Always check for items at the node
         if self.edges.get(&node).is_none() {
             return None;
-        } else if self.edges.get(&node).expect("No node in graph").len() > 0 {
+        } else if !self.edges.get(&node).expect("No node in graph").is_empty() {
             return Some(self.edges.get(&node)?.to_vec());
         } else if node == self.start {
             let is_blocked = line_of_sight_zones(
@@ -205,7 +205,7 @@ impl Graph {
                 }
             })
             .collect_vec();
-        return intersections;
+        intersections
     }
 
     //Return the valide bitangents that create a hugging edge
@@ -230,7 +230,7 @@ impl Graph {
             })
             .collect_vec();
 
-        return valid;
+        valid
     }
 
     fn intersection_cull(
@@ -246,7 +246,7 @@ impl Graph {
                 return None;
             }
         }
-        return Some(*node);
+        Some(*node)
     }
 }
 pub fn reconstruct_path(
@@ -254,7 +254,7 @@ pub fn reconstruct_path(
     start: Node,
     end: Node,
 ) -> Vec<(Node, f64)> {
-    let mut current = (end.clone(), f64::INFINITY);
+    let mut current = (end, f64::INFINITY);
     let mut path: Vec<(Node, f64)> = Vec::new();
     while !current.0.eq(&start) {
         path.push(current);
@@ -262,7 +262,7 @@ pub fn reconstruct_path(
     }
     path.push((start, f64::INFINITY));
     path.reverse();
-    return path;
+    path
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -411,12 +411,12 @@ impl Edge {
     fn generate_edge(start: Node, end: Node, theta: f64, radius: Option<f64>) -> Edge {
         let start_loc = &start.location.float_encode();
         let end_loc = &end.location.float_encode();
-        let mut dist: f64;
-        let mut comb_vec: Vec<f64>;
-        let mut direction: Option<Vec<f64>>;
+        let dist: f64;
+        let comb_vec: Vec<f64>;
+        let direction: Option<Vec<f64>>;
         if theta.is_infinite() {
-            dist = distance(&start_loc, &end_loc);
-            comb_vec = subtrac_pts(&end_loc, &start_loc);
+            dist = distance(start_loc, end_loc);
+            comb_vec = subtrac_pts(end_loc, start_loc);
             direction = Some(comb_vec.iter().map(|val| val / dist).collect_vec());
         } else {
             dist = radius.unwrap() * theta;
@@ -443,7 +443,7 @@ impl Ord for Number {
 }
 //Pulled from old Rust std
 fn integer_decode(val: f64) -> (u64, i16, i8) {
-    let bits: u64 = unsafe { mem::transmute(val as f64) };
+    let bits: u64 = unsafe { mem::transmute(val) };
     let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
     let mut exponent: i16 = ((bits >> 52) & 0x7ff) as i16;
     let mantissa = if exponent == 0 {
@@ -456,7 +456,7 @@ fn integer_decode(val: f64) -> (u64, i16, i8) {
     (mantissa, exponent, sign)
 }
 
-pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<Node, f64>) {
+pub fn a_star(graph: &mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<Node, f64>) {
     let mut frontier: PriorityQueue<Node, Number> = PriorityQueue::new();
     frontier.push(graph.start, Number(0.0));
     let mut came_from: HashMap<Node, (Node, f64)> = HashMap::new();
@@ -471,8 +471,7 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<
         }
 
         for e in graph
-            .neighbors(current)
-            .unwrap_or_else(|| Vec::<Edge>::new())
+            .neighbors(current).unwrap_or_default()
         {
             let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
 
@@ -489,7 +488,7 @@ pub fn a_star<'a>(graph: &'a mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<
         }
     }
 
-    return (came_from, cost_so_far);
+    (came_from, cost_so_far)
 }
 
 pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &Vec<Zone>) -> bool {
@@ -588,7 +587,7 @@ fn tangent_prep(
             }
         })
         .collect_vec();
-    return valid_tangents;
+    valid_tangents
 }
 
 ///https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Tangents_between_two_circles
@@ -617,8 +616,8 @@ fn generate_tangents(
         let mut h = (1.0 - c * c).sqrt().max(0.0);
         h = round_to(h, 5);
         for sign2 in (-1..2).step_by(2) {
-            let nx = center_norm[0] * c - sign2 as f64 * h as f64 * center_norm[1];
-            let ny = center_norm[1] * c + sign2 as f64 * h as f64 * center_norm[0];
+            let nx = center_norm[0] * c - sign2 as f64 * h * center_norm[1];
+            let ny = center_norm[1] * c + sign2 as f64 * h * center_norm[0];
 
             let tangent_1_loc = [
                 round_to(start_loc[0] - start_radius * nx, 5) + 0.0,
@@ -638,10 +637,10 @@ fn generate_tangents(
             return tangents;
         }
     }
-    return tangents;
+    tangents
 }
 
 fn round_to(num: f64, places: i32) -> f64 {
     let p = 100.0_f64.powi(places);
-    return (num * p).round() / p;
+    (num * p).round() / p
 }
