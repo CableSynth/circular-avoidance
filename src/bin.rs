@@ -1,9 +1,7 @@
 use avoidrs::{a_star, reconstruct_path, Graph, Node, Zone};
 use clap::Parser;
 use itertools::Itertools;
-use std::{
-    fs::{File},
-};
+use std::fs::File;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]

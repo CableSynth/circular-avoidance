@@ -1,12 +1,12 @@
 use core::cmp::Ordering;
 use core::fmt;
-use itertools::{Itertools};
+use itertools::Itertools;
 use priority_queue::PriorityQueue;
 use serde::ser::{SerializeMap, SerializeStruct};
 use serde::{ser, Serialize};
 use serde_json_any_key::*;
-use std::ops::{Add};
-use std::{collections::HashMap};
+use std::collections::HashMap;
+use std::ops::Add;
 use std::{f64::consts::PI, mem, vec};
 use uuid::Uuid;
 
@@ -470,9 +470,7 @@ pub fn a_star(graph: &mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<Node, f
             break;
         }
 
-        for e in graph
-            .neighbors(current).unwrap_or_default()
-        {
+        for e in graph.neighbors(current).unwrap_or_default() {
             let new_cost = cost_so_far.get(&current).expect("node not in cost") + e.weight;
 
             if !cost_so_far.contains_key(&e.node) || &new_cost < cost_so_far.get(&e.node).unwrap() {
