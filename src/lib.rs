@@ -5,10 +5,10 @@ use priority_queue::PriorityQueue;
 use serde::ser::{SerializeMap, SerializeStruct};
 use serde::{ser, Deserialize, Serialize};
 use serde_json_any_key::*;
+use std::ops::{Add, Sub};
 use std::{borrow::BorrowMut, collections::HashMap};
 use std::{f64::consts::PI, mem, vec};
 use uuid::Uuid;
-use std::ops::{Add, Sub};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Graph {
@@ -46,7 +46,6 @@ impl Graph {
         } else if self.edges.get(&node).expect("No node in graph").len() > 0 {
             return Some(self.edges.get(&node)?.to_vec());
         } else if node == self.start {
-
             let is_blocked = line_of_sight_zones(
                 &self.start,
                 &self.end,
@@ -55,7 +54,6 @@ impl Graph {
 
             //are any circles in our way
             if is_blocked {
-
                 let temp_c = self.circles.values().cloned().collect_vec();
 
                 let valid_tangents = tangent_prep(temp_c, self.start.loc_radius());
@@ -200,7 +198,7 @@ impl Graph {
                     let intersection_edge_1 = subtrac_pts(&[point_a_x, point_a_y], &focus_loc);
                     let intersection_edge_2 = subtrac_pts(&[point_b_x, point_b_y], &focus_loc);
                     let intersection_angle_1 =
-                        (-intersection_edge_1[1]).atan2(-intersection_edge_1[0])+ PI;
+                        (-intersection_edge_1[1]).atan2(-intersection_edge_1[0]) + PI;
                     let intersection_angle_2 =
                         (-intersection_edge_2[1]).atan2(-intersection_edge_2[0]) + PI;
                     Some((intersection_angle_1, intersection_angle_2))
@@ -345,12 +343,13 @@ impl Point {
             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64) as f32,
         )
     }
-    fn distance(self, rhs: Self) -> f64{
-        
-        let square_sum: f64 = self.float_encode().iter()
-        .zip(rhs.float_encode().iter())
-        .map(|(x1, x2)| (x2 - x1).powi(2))
-        .sum();
+    fn distance(self, rhs: Self) -> f64 {
+        let square_sum: f64 = self
+            .float_encode()
+            .iter()
+            .zip(rhs.float_encode().iter())
+            .map(|(x1, x2)| (x2 - x1).powi(2))
+            .sum();
         square_sum.sqrt()
     }
 }
@@ -361,9 +360,12 @@ impl Add for Point {
     fn add(self, rhs: Self) -> Self::Output {
         let s = self.float_encode();
         let r = rhs.float_encode();
-        let point_vec =  s.iter().zip(r.iter()).map(|(left, right)| left + right).collect_vec();
+        let point_vec = s
+            .iter()
+            .zip(r.iter())
+            .map(|(left, right)| left + right)
+            .collect_vec();
         Point::new(point_vec[0], point_vec[1])
-
     }
 }
 
