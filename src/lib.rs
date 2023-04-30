@@ -2,12 +2,12 @@ use core::cmp::Ordering;
 use core::fmt;
 use itertools::Itertools;
 use priority_queue::PriorityQueue;
-use serde::ser::{SerializeMap, SerializeStruct};
+use serde::ser::SerializeStruct;
 use serde::{ser, Serialize};
 use serde_json_any_key::*;
 use std::collections::HashMap;
 use std::ops::Add;
-use std::{f64::consts::PI, mem, vec};
+use std::{f64::consts::PI, vec};
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize)]
@@ -121,8 +121,7 @@ impl Graph {
                     self.circles
                         .entry(circle_id)
                         .and_modify(|z| z.nodes.push(tangent_pair.0));
-                    let mut vec_for_edge: Vec<Edge> = Vec::new();
-                    vec_for_edge.push(edg);
+                    let vec_for_edge: Vec<Edge> = vec![edg];
                     self.edges.insert(tangent_pair.0, vec_for_edge);
                     self.edges.insert(tangent_pair.1, Vec::<Edge>::new());
                 }
@@ -132,8 +131,7 @@ impl Graph {
                     self.circles
                         .entry(circle_id)
                         .and_modify(|z| z.nodes.push(n));
-                    let mut vec_for_edge: Vec<Edge> = Vec::new();
-                    vec_for_edge.push(edg);
+                    let vec_for_edge: Vec<Edge> = vec![edg];
                     self.edges.insert(n, vec_for_edge);
                 }
             }
@@ -212,7 +210,7 @@ impl Graph {
     fn cull_hugging(
         &mut self,
         node: Node,
-        nodes: &Vec<Node>,
+        nodes: &[Node],
         intersects: Vec<(f64, f64)>,
         zone_loc: Point,
     ) -> Vec<Node> {
@@ -426,11 +424,15 @@ impl Edge {
     }
 }
 
-#[derive(PartialEq, PartialOrd)]
+#[derive(PartialEq)]
 pub struct Number(f64);
 
 impl Eq for Number {}
-
+impl PartialOrd for Number {
+    fn partial_cmp(&self, other: &Number) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
 impl Ord for Number {
     fn cmp(&self, other: &Self) -> Ordering {
         if let Some(ordering) = self.partial_cmp(other) {
@@ -443,7 +445,7 @@ impl Ord for Number {
 }
 //Pulled from old Rust std
 fn integer_decode(val: f64) -> (u64, i16, i8) {
-    let bits: u64 = unsafe { mem::transmute(val) };
+    let bits: u64 = val.to_bits();
     let sign: i8 = if bits >> 63 == 0 { 1 } else { -1 };
     let mut exponent: i16 = ((bits >> 52) & 0x7ff) as i16;
     let mantissa = if exponent == 0 {
@@ -489,7 +491,7 @@ pub fn a_star(graph: &mut Graph) -> (HashMap<Node, (Node, f64)>, HashMap<Node, f
     (came_from, cost_so_far)
 }
 
-pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &Vec<Zone>) -> bool {
+pub fn line_of_sight_zones(node_1: &Node, node_2: &Node, zones: &[Zone]) -> bool {
     // calculate u
     let a = &node_1.location.float_encode();
     let b = &node_2.location.float_encode();
