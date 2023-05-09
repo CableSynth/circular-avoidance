@@ -424,7 +424,7 @@ impl Edge {
     }
 }
 
-#[derive(PartialEq,)]
+#[derive(PartialEq)]
 pub struct Number(f64);
 
 impl Eq for Number {}
