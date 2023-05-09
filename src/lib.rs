@@ -341,15 +341,15 @@ impl Point {
             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64) as f32,
         )
     }
-    fn distance(self, rhs: Self) -> f64 {
-        let square_sum: f64 = self
-            .float_encode()
-            .iter()
-            .zip(rhs.float_encode().iter())
-            .map(|(x1, x2)| (x2 - x1).powi(2))
-            .sum();
-        square_sum.sqrt()
-    }
+    // fn distance(self, rhs: Self) -> f64 {
+    //     let square_sum: f64 = self
+    //         .float_encode()
+    //         .iter()
+    //         .zip(rhs.float_encode().iter())
+    //         .map(|(x1, x2)| (x2 - x1).powi(2))
+    //         .sum();
+    //     square_sum.sqrt()
+    // }
 }
 
 impl Add for Point {
@@ -424,7 +424,7 @@ impl Edge {
     }
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq,)]
 pub struct Number(f64);
 
 impl Eq for Number {}
@@ -435,11 +435,18 @@ impl PartialOrd for Number {
 }
 impl Ord for Number {
     fn cmp(&self, other: &Self) -> Ordering {
-        if let Some(ordering) = self.partial_cmp(other) {
-            ordering
-        } else {
+        if self.0.is_nan() {
+            Ordering::Less
+        } else if other.0.is_nan() {
+            Ordering::Greater
+        } else if self.0 < other.0 {
             // Choose what to do with NaNs, for example:
             Ordering::Less
+        } else if self.0 > other.0 {
+            // Choose what to do with NaNs, for example:
+            Ordering::Greater
+        } else {
+            Ordering::Equal
         }
     }
 }

@@ -7,7 +7,13 @@ fn test_distance() {
 }
 
 #[test]
-fn test_line_of_sight() {}
+fn test_line_of_sight() {
+    let start = Node::new([0.0, 0.0], None);
+    let end = Node::new([6.5, 7.4], None);
+    let z = Zone::new([3.0, 4.0], 2.0);
+    let los = line_of_sight(&start, &end, &z);
+    assert!(los)
+}
 
 #[test]
 fn test_3d_distance() {
@@ -32,9 +38,8 @@ fn graph_build() {
     let circle = vec![z, z1, z2];
     let mut graph = Graph::build_graph(start, end, circle);
     let (came_from, _cost) = a_star(&mut graph);
-    let _j = serde_json::to_string_pretty(&graph).expect("can't write");
     let _path = reconstruct_path(came_from, start, end);
-    // println!("path: {:?}", path);
+    println!("path: {:?}", _path);
     // println!("{}", j);
     // assert_eq!(nodes.unwrap().len(), 2);
     // print!("{:?}", graph)
