@@ -2,6 +2,7 @@ use core::cmp::Ordering;
 use core::fmt;
 use itertools::Itertools;
 use priority_queue::PriorityQueue;
+use serde::__private::de;
 use serde::ser::SerializeStruct;
 use serde::{ser, Serialize};
 use serde_json_any_key::*;
@@ -118,16 +119,21 @@ impl Graph {
                 for tangent_pair in valid_tangents {
                     let edg =
                         Edge::generate_edge(tangent_pair.0, tangent_pair.1, f64::INFINITY, None);
+                    println!("adding items to edge {:?}", (tangent_pair.0.location.float_encode(), tangent_pair.1.location.float_encode()));
                     self.circles
                         .entry(circle_id)
                         .and_modify(|z| z.nodes.push(tangent_pair.0));
                     let vec_for_edge: Vec<Edge> = vec![edg];
                     self.edges.insert(tangent_pair.0, vec_for_edge);
                     self.edges.insert(tangent_pair.1, Vec::<Edge>::new());
+                    for edg in self.edges.get(&tangent_pair.0).unwrap() {
+                        println!("\tedge {:?}", edg.node.location.float_encode());
+                    }
                 }
             } else {
                 for (_, &n) in end_tangents {
                     let edg = Edge::generate_edge(n, self.end, f64::INFINITY, None);
+                    println!("adding items to edge from end {:?}", (node.location.float_encode()));
                     self.circles
                         .entry(circle_id)
                         .and_modify(|z| z.nodes.push(n));
@@ -256,7 +262,12 @@ pub fn reconstruct_path(
     let mut path: Vec<(Node, f64)> = Vec::new();
     while !current.0.eq(&start) {
         path.push(current);
-        current = *came_from.get(&current.0).expect("No path avaliable");
+        if let Some(c) = came_from.get(&current.0) {
+            current = *c;
+        } else {
+            println!("No path found");
+            break;
+        };
     }
     path.push((start, f64::INFINITY));
     path.reverse();
@@ -584,6 +595,7 @@ fn tangent_prep(
         .flat_map(|c| generate_tangents(loc_radius_oi.clone(), c.loc_radius()))
         .collect_vec();
 
+    println!("possible tangents: {:?}", possible_tangents.iter().map(|(s,e)| (s.location.float_encode(), e.location.float_encode())).collect_vec());
     let valid_tangents = possible_tangents
         .iter()
         .filter_map(|(s, e)| {
@@ -594,6 +606,7 @@ fn tangent_prep(
             }
         })
         .collect_vec();
+    println!("valid tangents: {:?}", valid_tangents.iter().map(|(s,e)| (s.location.float_encode(), e.location.float_encode())).collect_vec());
     valid_tangents
 }
 
