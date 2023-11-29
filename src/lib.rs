@@ -10,6 +10,7 @@ use std::collections::HashMap;
 use std::ops::Add;
 use std::{f64::consts::PI, vec};
 use uuid::Uuid;
+use robust::Coord;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Graph {
@@ -276,7 +277,7 @@ pub fn reconstruct_path(
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Zone {
-    location: Point,
+    location: Coord<f64>,
     uuid: Uuid,
     radius: f64,
     //Thinking of reworking this to store in a different way
@@ -286,7 +287,7 @@ pub struct Zone {
 impl Zone {
     pub fn new(location: [f64; 2], radius: f64) -> Self {
         Self {
-            location: Point::new(location[0], location[1]),
+            location: Coord { x: location[0], y: location[1] },
             uuid: Uuid::new_v4(),
             radius,
             nodes: Vec::<Node>::new(),
@@ -295,20 +296,20 @@ impl Zone {
 }
 
 impl LocationRadius for Zone {
-    fn loc_radius(&self) -> (Vec<f64>, f64, Option<Uuid>) {
-        (self.location.float_encode(), self.radius, Some(self.uuid))
+    fn loc_radius(&self) -> (Coord<f64>, f64, Option<Uuid>) {
+        (self.location, self.radius, Some(self.uuid))
     }
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Copy, Serialize)]
 pub struct Node {
-    location: Point,
+    location: Coord<f64>,
     circle: Uuid,
 }
 impl Node {
     pub fn new(location: [f64; 2], id: Option<Uuid>) -> Self {
         Self {
-            location: Point::new(location[0], location[1]),
+            location: Coord { x: location[0], y: location[1] },
             circle: id.unwrap_or_default(),
         }
     }
@@ -316,14 +317,14 @@ impl Node {
 
 impl fmt::Display for Node {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let loc_print = self.location.encode_as_tuple();
+        let loc_print = self.location;
         write!(f, "location: {:?}, circle {}", loc_print, self.circle)
     }
 }
 
 impl LocationRadius for Node {
     fn loc_radius(&self) -> (Vec<f64>, f64, Option<Uuid>) {
-        (self.location.float_encode(), 0.0, None)
+        (self.location, 0.0, None)
     }
 }
 
@@ -352,15 +353,7 @@ impl Point {
             ((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64) as f32,
         )
     }
-    // fn distance(self, rhs: Self) -> f64 {
-    //     let square_sum: f64 = self
-    //         .float_encode()
-    //         .iter()
-    //         .zip(rhs.float_encode().iter())
-    //         .map(|(x1, x2)| (x2 - x1).powi(2))
-    //         .sum();
-    //     square_sum.sqrt()
-    // }
+    
 }
 
 impl Add for Point {
@@ -378,22 +371,11 @@ impl Add for Point {
     }
 }
 
-impl ser::Serialize for Point {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        let mut s = serializer.serialize_struct("Point", 2)?;
-        s.serialize_field(
-            "x",
-            &((self.x.0 as f64) * (self.x.1 as f64).exp2() * self.x.2 as f64),
-        )?;
-        s.serialize_field(
-            "y",
-            &((self.y.0 as f64) * (self.y.1 as f64).exp2() * self.y.2 as f64),
-        )?;
-        s.end()
-    }
+#[derive(Serialize)]
+#[serde(remote = "Coord<f64>")]
+struct CoordDef {
+    x: f64,
+    y: f64,
 }
 
 trait LocationRadius {
@@ -418,8 +400,8 @@ impl Edge {
         }
     }
     fn generate_edge(start: Node, end: Node, theta: f64, radius: Option<f64>) -> Edge {
-        let start_loc = &start.location.float_encode();
-        let end_loc = &end.location.float_encode();
+        let start_loc = &start.location;
+        let end_loc = &end.location;
         let dist: f64;
         let comb_vec: Vec<f64>;
         let direction: Option<Vec<f64>>;
@@ -435,32 +417,6 @@ impl Edge {
     }
 }
 
-#[derive(PartialEq)]
-pub struct Number(f64);
-
-impl Eq for Number {}
-impl PartialOrd for Number {
-    fn partial_cmp(&self, other: &Number) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for Number {
-    fn cmp(&self, other: &Self) -> Ordering {
-        if self.0.is_nan() {
-            Ordering::Less
-        } else if other.0.is_nan() {
-            Ordering::Greater
-        } else if self.0 < other.0 {
-            // Choose what to do with NaNs, for example:
-            Ordering::Less
-        } else if self.0 > other.0 {
-            // Choose what to do with NaNs, for example:
-            Ordering::Greater
-        } else {
-            Ordering::Equal
-        }
-    }
-}
 //Pulled from old Rust std
 fn integer_decode(val: f64) -> (u64, i16, i8) {
     let bits: u64 = val.to_bits();

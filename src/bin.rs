@@ -3,13 +3,13 @@ use clap::Parser;
 use itertools::Itertools;
 use std::fs::File;
 
-#[derive(Parser, Debug)]
-#[command(author, version, about, long_about = None)]
-struct Args {
-    /// Input CSV file
-    #[arg(short, long)]
-    file_name: String,
-}
+// #[derive(Parser, Debug)]
+// #[command(author, version, about, long_about = None)]
+// struct Args {
+//     /// Input CSV file
+//     #[arg(short, long)]
+//     file_name: String,
+// }
 
 fn main() {
     //let args = Args::parse();
